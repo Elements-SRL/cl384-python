@@ -583,7 +583,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("getLiquidJunctionStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
         std::vector<LiquidJunctionStatus> statuses;
         auto err = self.getLiquidJunctionStatuses(channelIndexes, statuses);
-        return std::make_tuple(err, channelIndexes, statuses);
+        return std::make_tuple(err, statuses);
     })
             GET_RANGED_MEASUREMENT_VEC(getVoltageHoldTunerFeatures)
             GET_RANGED_MEASUREMENT_VEC(getVoltageHalfFeatures)
@@ -741,53 +741,87 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
     });
 
     py::enum_<ErrorCodes_t>(m, "ErrorCodes")
-            .value("Success",                           Success)
-            .value("ErrorNoDataAvailable",              ErrorNoDataAvailable)
-            .value("ErrorNoDeviceFound",                ErrorNoDeviceFound)
-            .value("ErrorListDeviceFailed",             ErrorListDeviceFailed)
-            .value("ErrorEepromAlreadyConnected",       ErrorEepromAlreadyConnected)
-            .value("ErrorEepromConnectionFailed",       ErrorEepromConnectionFailed)
-            .value("ErrorEepromDisconnectionFailed",    ErrorEepromDisconnectionFailed)
-            .value("ErrorEepromNotConnected",           ErrorEepromNotConnected)
-            .value("ErrorEepromReadFailed",             ErrorEepromReadFailed)
-            .value("ErrorEepromNotRecognized",          ErrorEepromNotRecognized)
-            .value("ErrorDeviceTypeNotRecognized",      ErrorDeviceTypeNotRecognized)
-            .value("ErrorDeviceAlreadyConnected",       ErrorDeviceAlreadyConnected)
-            .value("ErrorDeviceNotConnected",           ErrorDeviceNotConnected)
-            .value("ErrorDeviceConnectionFailed",       ErrorDeviceConnectionFailed)
-            .value("ErrorFtdiConfigurationFailed",      ErrorFtdiConfigurationFailed)
-            .value("ErrorDeviceDisconnectionFailed",    ErrorDeviceDisconnectionFailed)
-            .value("ErrorSendMessageFailed",            ErrorSendMessageFailed)
-            .value("ErrorCommandNotImplemented",        ErrorCommandNotImplemented)
-            .value("ErrorValueOutOfRange",              ErrorValueOutOfRange)
-            .value("ErrorFeatureNotImplemented",        ErrorFeatureNotImplemented)
-            .value("ErrorUpgradesNotAvailable",         ErrorUpgradesNotAvailable)
-            .value("ErrorExpiredDevice",                ErrorExpiredDevice)
-            .value("ErrorUnknown",                      ErrorUnknown)
+            .value("Success",                               Success)
+            .value("ErrorNoDeviceFound",                    ErrorNoDeviceFound)
+            .value("ErrorListDeviceFailed",                 ErrorListDeviceFailed)
+
+            .value("ErrorDeviceNotFound",                   ErrorDeviceNotFound)
+
+            .value("ErrorEepromAlreadyConnected",           ErrorEepromAlreadyConnected)
+            .value("ErrorEepromConnectionFailed",           ErrorEepromConnectionFailed)
+            .value("ErrorEepromDisconnectionFailed",        ErrorEepromDisconnectionFailed)
+            .value("ErrorEepromNotConnected",               ErrorEepromNotConnected)
+            .value("ErrorEepromReadFailed",                 ErrorEepromReadFailed)
+            .value("ErrorEepromWriteFailed",                ErrorEepromWriteFailed)
+            .value("ErrorEepromNotRecognized",              ErrorEepromNotRecognized)
+            .value("ErrorEepromInvalidAddress",             ErrorEepromInvalidAddress)
+
+            .value("ErrorDeviceTypeNotRecognized",          ErrorDeviceTypeNotRecognized)
+            .value("ErrorDeviceAlreadyConnected",           ErrorDeviceAlreadyConnected)
+            .value("ErrorDeviceNotConnected",               ErrorDeviceNotConnected)
+            .value("ErrorDeviceConnectionFailed",           ErrorDeviceConnectionFailed)
+            .value("ErrorFtdiConfigurationFailed",          ErrorFtdiConfigurationFailed)
+            .value("ErrorConnectionPingFailed",             ErrorConnectionPingFailed)
+            .value("ErrorConnectionFpgaResetFailed",        ErrorConnectionFpgaResetFailed)
+            .value("ErrorConnectionChipResetFailed",        ErrorConnectionChipResetFailed)
+            .value("ErrorDeviceDisconnectionFailed",        ErrorDeviceDisconnectionFailed)
+            .value("ErrorDeviceFwLoadingFailed",            ErrorDeviceFwLoadingFailed)
+            .value("ErrorDeviceToBeUpgraded",               ErrorDeviceToBeUpgraded)
+            .value("ErrorDeviceNotUpgradable",              ErrorDeviceNotUpgradable)
+            .value("ErrorFwNotFound",                       ErrorFwNotFound)
+            .value("ErrorFwUpgradeFailed",                  ErrorFwUpgradeFailed)
+
+            .value("ErrorSendMessageFailed",                ErrorSendMessageFailed)
+            .value("ErrorCommandNotImplemented",            ErrorCommandNotImplemented)
+            .value("ErrorValueOutOfRange",                  ErrorValueOutOfRange)
+
+            .value("ErrorUnchangedValue",                   ErrorUnchangedValue)
+
+            .value("ErrorBadlyFormedProtocolLoop",          ErrorBadlyFormedProtocolLoop)
+
+            .value("ErrorNoDataAvailable",                  ErrorNoDataAvailable)
+            .value("ErrorRepeatedHeader",                   ErrorRepeatedHeader)
+            .value("ErrorRepeatedTail",                     ErrorRepeatedTail)
+            .value("ErrorIllFormedMessage",                 ErrorIllFormedMessage)
+
+            .value("ErrorWrongClampModality",               ErrorWrongClampModality)
+
+            .value("WarningValueClipped",                   WarningValueClipped)
+
+            .value("ErrorCompensationNotEnabled",           ErrorCompensationNotEnabled)
+
+            .value("ErrorFeatureNotImplemented",            ErrorFeatureNotImplemented)
+            .value("ErrorUpgradesNotAvailable",             ErrorUpgradesNotAvailable)
+
+            .value("ErrorExpiredDevice",                    ErrorExpiredDevice)
+
+            .value("ErrorMemoryInitialization",             ErrorMemoryInitialization)
+
+            .value("ErrorCalibrationDirMissing",            ErrorCalibrationDirMissing)
+            .value("ErrorCalibrationMappingNotOpened",      ErrorCalibrationMappingNotOpened)
+            .value("ErrorCalibrationMappingCorrupted",      ErrorCalibrationMappingCorrupted)
+            .value("ErrorCalibrationFileCorrupted",         ErrorCalibrationFileCorrupted)
+            .value("ErrorCalibrationFileMissing",           ErrorCalibrationFileMissing)
+            .value("ErrorCalibrationSoftwareBug",           ErrorCalibrationSoftwareBug)
+            .value("ErrorCalibrationNotLoadedYet",          ErrorCalibrationNotLoadedYet)
+            .value("ErrorCalibrationMappingWrongNumbering", ErrorCalibrationMappingWrongNumbering)
+
+            .value("ErrorUnknown",      ErrorUnknown)
             .export_values();
 
     py::enum_<ClampingModality_t>(m, "ClampingModality")
-            .value("VOLTAGE_CLAMP",      ClampingModality_t::VOLTAGE_CLAMP)
-            .value("CURRENT_CLAMP",      ClampingModality_t::CURRENT_CLAMP)
-            .value("DYNAMIC_CLAMP",      ClampingModality_t::DYNAMIC_CLAMP)
-            .value("ZERO_CURRENT_CLAMP",  ClampingModality_t::ZERO_CURRENT_CLAMP)
-            .export_values();
-
-    py::enum_<MessageDispatcher::CompensationUserParams>(m, "CompensationUserParams")
-            .value("U_CpVc",                            MessageDispatcher::CompensationUserParams::U_CpVc)
-            .value("U_Cm",                              MessageDispatcher::CompensationUserParams::U_Cm)
-            .value("U_Rs",                              MessageDispatcher::CompensationUserParams::U_Rs)
-            .value("U_RsCp",                            MessageDispatcher::CompensationUserParams::U_RsCp)
-            .value("U_RsPg",                            MessageDispatcher::CompensationUserParams::U_RsPg)
-            .value("U_CpCc",                            MessageDispatcher::CompensationUserParams::U_CpCc)
+            .value("VOLTAGE_CLAMP",         ClampingModality_t::VOLTAGE_CLAMP)
+            .value("CURRENT_CLAMP",         ClampingModality_t::CURRENT_CLAMP)
+            .value("DYNAMIC_CLAMP",         ClampingModality_t::DYNAMIC_CLAMP)
+            .value("ZERO_CURRENT_CLAMP",    ClampingModality_t::ZERO_CURRENT_CLAMP)
             .export_values();
 
     py::enum_<MessageDispatcher::CompensationTypes>(m, "CompensationTypes")
-            .value("CompCfast",                         MessageDispatcher::CompensationTypes::CompCfast)
-            .value("CompCslow",                         MessageDispatcher::CompensationTypes::CompCslow)
-            .value("CompRsCorr",                        MessageDispatcher::CompensationTypes::CompRsCorr)
-            .value("CompRsPred",                        MessageDispatcher::CompensationTypes::CompRsPred)
-            .value("CompCcCfast",                       MessageDispatcher::CompensationTypes::CompCcCfast)
+            .value("CompCfast",             MessageDispatcher::CompensationTypes::CompCfast)
+            .value("CompCslow",             MessageDispatcher::CompensationTypes::CompCslow)
+            .value("CompRsCorr",            MessageDispatcher::CompensationTypes::CompRsCorr)
+            .value("CompRsPred",            MessageDispatcher::CompensationTypes::CompRsPred)
+            .value("CompCcCfast",           MessageDispatcher::CompensationTypes::CompCcCfast)
             .export_values();
 
     py::enum_<UnitPfx_t>(m, "UnitPfx")
@@ -819,14 +853,14 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .export_values();
 
     py::enum_<LiquidJunctionStatus>(m, "LiquidJunctionStatus")
-            .value("LiquidJunctionNotPerformed",      LiquidJunctionNotPerformed)
-            .value("LiquidJunctionInterrupted",       LiquidJunctionInterrupted)
-            .value("LiquidJunctionSucceded",       LiquidJunctionSucceded)
-            .value("LiquidJunctionFailedOpenCircuit",      LiquidJunctionFailedOpenCircuit)
-            .value("LiquidJunctionFailedTooManySteps",      LiquidJunctionFailedTooManySteps)
-            .value("LiquidJunctionFailedSaturation",       LiquidJunctionFailedSaturation)
-            .value("LiquidJunctionResetted",       LiquidJunctionResetted)
-            .value("LiquidJunctionStatusesNum",       LiquidJunctionStatusesNum)
+            .value("LiquidJunctionNotPerformed",        LiquidJunctionNotPerformed)
+            .value("LiquidJunctionInterrupted",         LiquidJunctionInterrupted)
+            .value("LiquidJunctionSucceded",            LiquidJunctionSucceded)
+            .value("LiquidJunctionFailedOpenCircuit",   LiquidJunctionFailedOpenCircuit)
+            .value("LiquidJunctionFailedTooManySteps",  LiquidJunctionFailedTooManySteps)
+            .value("LiquidJunctionFailedSaturation",    LiquidJunctionFailedSaturation)
+            .value("LiquidJunctionResetted",            LiquidJunctionResetted)
+            .value("LiquidJunctionStatusesNum",         LiquidJunctionStatusesNum)
             .export_values();
 
     py::class_<Measurement_t>(m, "Measurement")
