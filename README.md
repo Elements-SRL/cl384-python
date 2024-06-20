@@ -52,13 +52,20 @@ v_m = v_range.step
 i_m = i_range.step
 err, voltage_channels, current_channels = md.getChannelNumberFeatures()
 total_channels = voltage_channels + current_channels
-error, rxOutput, data = md.getNextMessage()
-if error == e384.ErrorCodes.Success:
-    np_buffer = np.array(data, copy=False)
-    data_matrix = np_buffer.reshape((-1,total_channels)).transpose()
-    
-    v_data = np.append(v_data, data_matrix[::2] * v_m)
-    i_data = np.append(i_data, np_buffer[1::2] * i_m)
+# remove all previous data
+md.purgeData()
+# get at least 2 seconds of data
+while len(i_data) < samples_num:
+    error, rxOutput, data = md.getNextMessage()
+    if error == e384.ErrorCodes.Success:
+        np_buffer = np.array(data, copy=False)
+        data_matrix = np_buffer.reshape((-1, total_channels)).transpose()
+        # getting the first voltage channel
+        v_data = np.append(v_data, data_matrix[0] * v_m)
+        # getting the first current channel
+        i_data = np.append(i_data, data_matrix[voltage_channels] * i_m)
+    else:
+        time.sleep(0.1)
 ```
 From this snippet you can notice other 2 things:
 1. We put the data from the commlib in a np.array using the flag ```copy=False```, this gives the wrapper the possibility to use the C++ data without having to make fresh and costly copies.
