@@ -40,6 +40,30 @@ err, voltages = md.getLiquidJunctionVoltages(ch_indexes)
 
 In general, all parameters passed by reference and modified by the function in the Python wrapper are returned as a tuple, along with the error code. The number and order of the input parameters in the various functions remain unchanged.
 
+
+### Reading the data
+The communication library returns values that are **16 bit signed integers**, to get the real values they need to be multiplied by the resolution of the respective range.
+The commlib exposes 2 methods to do so but for efficiency reason we strongly recommend to get the resolution from the range you want to scale and then using numpy for the multiplications, as shown in the following snippet.
+```python
+_, v_range = md.getVCVoltageRange()
+_, i_range = md.getVCCurrentRange()
+# getting the data resolution, needed to go from the int version of the data to the usable float value
+v_m = v_range.step
+i_m = i_range.step
+err, voltage_channels, current_channels = md.getChannelNumberFeatures()
+total_channels = voltage_channels + current_channels
+error, rxOutput, data = md.getNextMessage()
+if error == e384.ErrorCodes.Success:
+    np_buffer = np.array(data, copy=False)
+    data_matrix = np_buffer.reshape((-1,total_channels)).transpose()
+    
+    v_data = np.append(v_data, data_matrix[::2] * v_m)
+    i_data = np.append(i_data, np_buffer[1::2] * i_m)
+```
+From this snippet you can notice other 2 things:
+1. We put the data from the commlib in a np.array using the flag ```copy=False```, this gives the wrapper the possibility to use the C++ data without having to make fresh and costly copies.
+2. The data returned by the commlib is organized in sectors, in particular, there are **n** voltage values (where n is the number of the voltage channels) followed by m current values (where **m** is the number of current channels), so to have it disposed in a more convienient way we can reshape the matrix to the total channels number like we did in the snippet to have all the values in the columns and by calling transpose we organize them in rows. In this way the first n rows will contain the voltages and the rows that go from n to n + m will contain the currents. 
+
 ## Working with the wrapper
 ### Installation
 Currently the Python wrapper of the e384commlib only works on Windows systems.

@@ -105,6 +105,7 @@ i_m = i_range.step
 err, sr = md.getSamplingRate()
 # 2 seconds of data
 samples_num = sr.getNoPrefixValue() * 2
+total_channels = voltage_channels + current_channels
 
 # remove all previous data
 md.purgeData()
@@ -114,8 +115,11 @@ while len(i_data) < samples_num:
     error, rxOutput, data = md.getNextMessage()
     if error == e384.ErrorCodes.Success:
         np_buffer = np.array(data, copy=False)
-        i_data = np.append(i_data, np_buffer[1::2] * i_m)
-        v_data = np.append(i_data, np_buffer[::2] * v_m)
+        data_matrix = np_buffer.reshape((-1, total_channels)).transpose()
+        # getting the first voltage channel
+        v_data = np.append(v_data, data_matrix[0] * v_m)
+        # getting the first current channel
+        i_data = np.append(i_data, data_matrix[voltage_channels] * i_m)
     else:
         time.sleep(0.1)
 
