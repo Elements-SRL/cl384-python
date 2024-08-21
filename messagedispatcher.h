@@ -1,7 +1,9 @@
 #ifndef MESSAGEDISPATCHER_H
 #define MESSAGEDISPATCHER_H
 
+#ifndef _USE_MATH_DEFINES
 #define _USE_MATH_DEFINES
+#endif
 
 #include <string>
 #include <mutex>
@@ -72,6 +74,12 @@ using namespace e384CommLib;
 class E384COMMLIBSHARED_EXPORT MessageDispatcher {
 public:
 
+    typedef struct FwUpgradeInfo { /*! Defaults to "no upgrades available" */
+        bool available = false;
+        unsigned char fwVersion = 0xFF;
+        std::string fwName = "";
+    } FwUpgradeInfo_t;
+
     /*****************\
      *  Ctor / Dtor  *
     \*****************/
@@ -79,7 +87,7 @@ public:
     /*! \brief Constructor.
      *  \note Don't call directly, the connectDevice should be used to get a MessageDispatcher.
      *
-     * \param deviceId [out] Serial number of the device.
+     * \param deviceId [in] Serial number of the device.
      */
     MessageDispatcher(std::string deviceId);
 
@@ -114,19 +122,6 @@ public:
         U_BrB,      // CCBridgeBalance
         CompensationUserParamsNum
     } CompensationUserParams_t;
-
-    typedef struct MsgResume {
-        uint16_t typeId;
-        uint16_t heartbeat;
-        uint32_t dataLength;
-        uint32_t startDataPtr;
-    } MsgResume_t;
-
-    typedef struct FwUpgradeInfo { /*! Defaults to "no upgrades available" */
-        bool available = false;
-        unsigned char fwVersion = 0xFF;
-        std::string fwName = "";
-    } FwUpgradeInfo_t;
 
     /************************\
      *  Connection methods  *
@@ -259,6 +254,12 @@ public:
      */
     ErrorCodes_t getChannelsOnRow(uint16_t rowIdx, std::vector <ChannelModel *> &channels);
 
+    /*! \brief Command used by EMCR to get the name of the connected device.
+     *
+     * \return The name as a std::string.
+     */
+    std::string getDeviceName();
+
     /****************\
      *  Tx methods  *
     \****************/
@@ -287,7 +288,16 @@ public:
      */
     virtual ErrorCodes_t startStateArray();
 
+    /*! \brief Start a zap pulse.
+     *
+     * \param channelIndexes [in] Channels to be zapped.
+     * \param duration [in] Duration of the zap pulse.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t zap(std::vector <uint16_t> channelIndexes, Measurement_t duration);
+
     /*! \brief Reset the device's ASIC.
+     *  \note This should be used if the readout seems unreliable, e.g. heady drifts, increased noise, saturation, etc.
      *
      * \param reset [in] False sets the ASIC in normal operation state, true sets in reset state.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
@@ -296,6 +306,7 @@ public:
     virtual ErrorCodes_t resetAsic(bool resetFlag, bool applyFlag = true);
 
     /*! \brief Reset the device's FPGA.
+     *  \note This should be used if the device seems unresponsive.
      *
      * \param reset [in] False sets the FPGA in normal operation state, true sets in reset state.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
@@ -339,6 +350,14 @@ public:
      */
     virtual ErrorCodes_t setCurrentHalf(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> currents, bool applyFlag);
 
+    /*! \brief Set the current offset to the default value.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to control.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    ErrorCodes_t resetOffsetRecalibration(std::vector <uint16_t> channelIndexes, bool applyFlag);
+
     /*! \brief Set the liquid junction voltage. Contrarily to the voltage hold tuner, this voltage contribute is not reflected in the voltage readout
      *
      * \param channelIndexes [in] Vector of Indexes for the channels to control.
@@ -354,7 +373,7 @@ public:
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
-    virtual ErrorCodes_t resetLiquidJunctionVoltage(std::vector <uint16_t> channelIndexes, bool applyFlag);
+    ErrorCodes_t resetLiquidJunctionVoltage(std::vector <uint16_t> channelIndexes, bool applyFlag);
 
     /*! \brief Set the gate voltage on a specific board.
      *
@@ -659,7 +678,7 @@ public:
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
-    virtual ErrorCodes_t turnVcCcSelOn(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag);
+    virtual ErrorCodes_t setAdcCore(std::vector <uint16_t> channelIndexes, std::vector <ClampingModality_t> clampingModes, bool applyFlag);
 
     /*! \brief Enables or disables the stimulus in current clamp.
      *  \note The stimulus is disabled via a physical switch, not by digital means, so this allows the I0 current clamp mode
@@ -706,11 +725,37 @@ public:
      */
     virtual ErrorCodes_t setSourceForCurrentChannel(uint16_t source, bool applyFlag);
 
-    /*! \brief Execute digital offset compensation.
-     * Digital offset compensation tunes the offset of the applied voltage so that the acquired current is 0.
+    /*! \brief Execute the readout offset recalibration.
+     * \note The readout offset recalibration needs to be run in open circuit in voltage clamp and in short circuit in current clamp.
+     * This way the readout is guaranteed to be zero and the recalibration can be performed.
      *
      * \param channelIndexes [in] Channel indexes.
-     * \param onValues [in] Array of booleans, one for each channel: True to turn the offset compensation on, false to turn it off.
+     * \param onValues [in] Array of booleans, one for each channel: True to turn the recalibration on, false to turn it off.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t readoutOffsetRecalibration(std::vector <uint16_t>, std::vector <bool>, bool);
+
+    /*! \brief Execute liquid junction compensation.
+     * \note The liquid junction compensation tunes the offset of the applied voltage so that the acquired current is 0.
+     * \note Do not use in open circuit: if there's a current offset in open circuit use the readoutOffsetRecalibration to fix it.
+     * \note This is a recalibartion procedure of the voltage offset, so the value is not added to the returned current trace.
+     *
+     * \param channelIndexes [in] Channel indexes.
+     * \param onValues [in] Array of booleans, one for each channel: True to turn the compensation algorithm on, false to turn it off.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t liquidJunctionCompensation(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag);
+
+    /*! \brief Execute liquid junction compensation.
+     * \note The liquid junction compensation tunes the offset of the applied voltage so that the acquired current is 0.
+     * \note Do not use in open circuit: if there's a current offset in open circuit use the readoutOffsetRecalibration to fix it.
+     * \note This is a recalibartion procedure of the voltage offset, so the value is not added to the returned current trace.
+     * \deprecated Use liquidJunctionCompensation instead.
+     *
+     * \param channelIndexes [in] Channel indexes.
+     * \param onValues [in] Array of booleans, one for each channel: True to turn the compensation algorithm on, false to turn it off.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
@@ -781,7 +826,7 @@ public:
     /*! \brief Turn on/off the voltage reader for each channel.
      *  \note The voltage is read by the current clamp ADC.
      *  \note In some devices the ADC can't be turned on independently of the DAC.
-     *  \note This only activates the circuitry: in order to have the device return the desired channels use #setChannelsSources.
+     *  \note This only activates the circuitry: in order to have the device return the desired channels use #setSourceForVoltageChannel.
      *
      * \param onValue [in] True to turn the voltage reader on, false to turn it off.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
@@ -792,7 +837,7 @@ public:
     /*! \brief Turn on/off the current reader for each channel.
      *  \note The current is read by the current clamp ADC.
      *  \note In some devices the ADC can't be turned on independently of the DAC.
-     *  \note This only activates the circuitry: in order to have the device return the desired channels use #setChannelsSources.
+     *  \note This only activates the circuitry: in order to have the device return the desired channels use #setSourceForCurrentChannel.
      *
      * \param onValue [in] True to turn the current reader on, false to turn it off.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
@@ -1197,6 +1242,14 @@ public:
      */
     ErrorCodes_t convertCurrentValues(int16_t * intValue, double * fltValue, int valuesNum);
 
+    /*! \brief Get the current status of the readout offset recalibration algorithm for each channel.
+     *
+     * \param channelIndexes [in] Vector of channel indexes.
+     * \param voltages [out] Array of algorithm status for the selected channels.
+     * \return Error code.
+     */
+    ErrorCodes_t getReadoutOffsetRecalibrationStatuses(std::vector <uint16_t> channelIndexes, std::vector <OffsetRecalibStatus_t> &statuses);
+
     /*! \brief Get the voltage currently corrected by liquid junction compensation.
      *
      * \param channelIndexes [in] Vector of channel indexes.
@@ -1527,10 +1580,10 @@ public:
      */
     ErrorCodes_t getSamplingRateIdx(uint32_t &idx);
 
-    /*! \brief Get the real sampling rates available for the device.
+    /*! \brief Get the sampling rates available for the device.
+     *  \deprecated Use getSamplingRatesFeatures instead
      *
-     * \param samplingRates [out] Array containing all the available real sampling rates
-     *                            (may slightly differ from displayed sampling rates).
+     * \param samplingRates [out] Array containing all the available sampling rates
      * \return Error code.
      */
     ErrorCodes_t getRealSamplingRatesFeatures(std::vector <Measurement_t> &realSamplingRates);
@@ -1726,6 +1779,13 @@ public:
      */
     virtual ErrorCodes_t isStateArrayAvailable();
 
+    /*! \brief Get information on zap pulses implementation.
+     *
+     * \param durationRange [out] Duraton range for the zap pulse
+     * \return Success if the device implements zap pulses.
+     */
+    virtual ErrorCodes_t getZapFeatures(RangedMeasurement_t &durationRange);
+
     /*! \brief Get a structure containing the calibration parameters.
      *
      * \param calibParams [out] calibration parameters.
@@ -1746,7 +1806,7 @@ public:
      * The external vector has an item for each clamping modality, the internal vectors has an item for each calibration parameters family, e.g. voltage clamp current gains.
      * \return Error code.
      */
-    virtual ErrorCodes_t getCalibFilesFlags(std::vector <std::vector <bool>> &calibFilesFlags);
+    virtual ErrorCodes_t getCalibFilesFlags(std::vector <std::vector <bool> > &calibFilesFlags);
 
     /*! \brief Get the directory of the calibration mapping file.
      *
@@ -1819,7 +1879,7 @@ public:
      * \note the values might differ from the values set by user because of rounding factors, clipping and interactions with other compensations.
      * \return Success if the device implements any compensation.
      */
-    ErrorCodes_t getCompValueMatrix(std::vector <std::vector <double>> &matrix);
+    ErrorCodes_t getCompValueMatrix(std::vector <std::vector <double> > &matrix);
 
     /*! \brief Get the state of a compensation type for some channels.
      *
@@ -1855,7 +1915,7 @@ public:
      * \param customOptionsDefault [out] Deafault options.
      * \return Success if the device implements any custom enumerator control.
      */
-    ErrorCodes_t getCustomOptions(std::vector <std::string> &customOptions, std::vector <std::vector <std::string>> &customOptionsDescriptions, std::vector <uint16_t> &customOptionsDefault);
+    ErrorCodes_t getCustomOptions(std::vector <std::string> &customOptions, std::vector <std::vector <std::string> > &customOptionsDescriptions, std::vector <uint16_t> &customOptionsDefault);
 
     /*! \brief Get the specifications of the custom controls of type value.
      *
@@ -1878,6 +1938,24 @@ protected:
         RxMessageNum
     } RxMessageTypes_t;
 
+    typedef struct MsgResume {
+        uint16_t typeId;
+        uint16_t heartbeat;
+        uint32_t dataLength;
+        uint32_t startDataPtr;
+    } MsgResume_t;
+
+    typedef enum OffsetRecalibState {
+        OffsetRecalibIdle,
+        OffsetRecalibStarting,
+        OffsetRecalibFirstStep,
+        OffsetRecalibCheck,
+        OffsetRecalibSuccess,
+        OffsetRecalibFail,
+        OffsetRecalibTerminate,
+        OffsetRecalibStatesNum
+    } OffsetRecalibState_t;
+
     typedef enum LiquidJunctionState {
         LiquidJunctionIdle,
         LiquidJunctionStarting,
@@ -1890,6 +1968,12 @@ protected:
         LiquidJunctionTerminate,
         LiquidJunctionStatesNum
     } LiquidJunctionState_t;
+
+    typedef enum ParsingStatus {
+        ParsingNone,
+        ParsingPreparing,
+        ParsingParsing
+    } ParsingStatus_t;
 
     /*************\
      *  Methods  *
@@ -1930,7 +2014,6 @@ protected:
     void fillChannelList(uint16_t numOfBoards, uint16_t numOfChannelsOnBoard);
 
     void flushBoardList();
-
     /************\
      *  Fields  *
     \************/
@@ -1978,11 +2061,13 @@ protected:
     Measurement_t selectedProtocolVrest = {0.0, UnitPfxNone, "V"};
     Measurement_t selectedProtocolIrest = {0.0, UnitPfxNone, "A"};
 
+    RangedMeasurement_t zapDurationRange = {0.0, 0.0, 1.0, UnitPfxNone, "s"};
+
     uint32_t clampingModalitiesNum = 0;
     uint32_t selectedClampingModalityIdx = 0;
     bool clampingModalitySetFlag = false;
-    uint32_t selectedClampingModality = VOLTAGE_CLAMP;
-    uint32_t previousClampingModality = VOLTAGE_CLAMP;
+    uint32_t selectedClampingModality = UNDEFINED_CLAMP;
+    uint32_t previousClampingModality = UNDEFINED_CLAMP;
     std::vector <ClampingModality_t> clampingModalitiesArray;
     uint16_t defaultClampingModalityIdx = 0;
 
@@ -2033,13 +2118,11 @@ protected:
     uint16_t defaultCcVoltageFilterIdx = 0;
 
     uint32_t samplingRatesNum;
-    std::vector <Measurement_t> samplingRatesArray;
     std::vector <Measurement_t> realSamplingRatesArray;
     std::vector <Measurement_t> integrationStepArray;
     unsigned int defaultSamplingRateIdx = 0;
     std::unordered_map <uint16_t, uint16_t> sr2LpfVcCurrentMap;
     std::unordered_map <uint16_t, uint16_t> sr2LpfCcVoltageMap;
-    std::unordered_map <uint16_t, uint16_t> vcCurrRange2CalibResMap;
 
     std::vector <Measurement_t> selectedVoltageHoldVector; /*! \todo FCON sostituibile con le info reperibili dai channel model? */
     std::vector <Measurement_t> selectedCurrentHoldVector; /*! \todo FCON sostituibile con le info reperibili dai channel model? */
@@ -2062,8 +2145,9 @@ protected:
     uint16_t selectedSourceForVoltageChannelIdx;
     uint16_t selectedSourceForCurrentChannelIdx;
 
+    CalibrationParams_t calibrationParams;
+    CalibrationParams_t originalCalibrationParams;
     std::vector <RangedMeasurement_t> rRShuntConductanceCalibRange;
-
     /*! Compensation options*/
     std::vector <uint16_t> selectedRsCorrBws;
     std::vector <Measurement_t> rsCorrBwArray;
@@ -2083,14 +2167,19 @@ protected:
     std::vector <double> defaultUserDomainParams;
 
     std::vector <double> membraneCapValueInjCapacitance;
-    std::vector <std::vector <std::string>> compensationOptionStrings;
+    std::vector <std::vector <std::string> > compensationOptionStrings;
 
-    std::vector <std::vector <double>> compValueMatrix;
+    std::vector <std::vector <double> > compValueMatrix;
     std::vector <bool> compensationsEnableFlags[CompensationTypesNum];
     bool vcCompensationsActivated = false;
     bool ccCompensationsActivated = false;
 
+    bool anyOffsetRecalibrationActive = false;
     bool anyLiquidJunctionActive = false;
+    bool computeCurrentOffsetFlag = false;
+
+    std::vector <OffsetRecalibStatus_t> offsetRecalibStatuses;
+    std::vector <OffsetRecalibState_t> offsetRecalibStates;
 
     std::vector <LiquidJunctionStatus_t> liquidJunctionStatuses;
     std::vector <LiquidJunctionState_t> liquidJunctionStates;
@@ -2108,11 +2197,11 @@ protected:
     std::vector <uint16_t> liquidJunctionOpenCircuitCount;
 
     std::string deviceId;
-    std::string deviceName;
+    std::string deviceName = "undefined";
 
     bool threadsStarted = false;
     bool stopConnectionFlag = false;
-    bool parsingFlag = false;
+    ParsingStatus_t parsingStatus = ParsingNone;
 
     std::vector <BoardModel *> boardModels;
     std::vector <ChannelModel *> channelModels;
@@ -2140,7 +2229,7 @@ protected:
 
     uint16_t customOptionsNum = 0;
     std::vector <std::string> customOptionsNames;
-    std::vector <std::vector <std::string>> customOptionsDescriptions;
+    std::vector <std::vector <std::string> > customOptionsDescriptions;
     std::vector <uint16_t> customOptionsDefault;
 
     uint16_t customDoublesNum = 0;

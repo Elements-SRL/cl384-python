@@ -68,6 +68,9 @@ public:
     WRAP_0_ARGS_RET_ERROR_CODES(startProtocol)
     WRAP_0_ARGS_RET_ERROR_CODES(stopProtocol)
     WRAP_0_ARGS_RET_ERROR_CODES(startStateArray)
+    ErrorCodes_t zap(std::vector <uint16_t> channelIndexes, Measurement_t duration) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(zap, channelIndexes, duration)
+    }
     ErrorCodes_t resetAsic(bool resetFlag, bool applyFlag = true) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(resetAsic, resetFlag, applyFlag)
     }
@@ -88,9 +91,6 @@ public:
     }
     ErrorCodes_t setLiquidJunctionVoltage(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> voltages, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setLiquidJunctionVoltage, channelIndexes, voltages, applyFlag)
-    }
-    ErrorCodes_t resetLiquidJunctionVoltage(std::vector<uint16_t> channelIndexes, bool applyFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(resetLiquidJunctionVoltage, channelIndexes, applyFlag)
     }
     ErrorCodes_t setGateVoltages(std::vector<uint16_t> boardIndexes, std::vector<Measurement_t> gateVoltages, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setGateVoltages, boardIndexes, gateVoltages, applyFlag)
@@ -192,8 +192,8 @@ public:
     ErrorCodes_t turnCcSwOn(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(turnCcSwOn, channelIndexes, onValues, applyFlag)
     }
-    ErrorCodes_t turnVcCcSelOn(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(turnVcCcSelOn, channelIndexes, onValues, applyFlag)
+    ErrorCodes_t setAdcCore(std::vector<uint16_t> channelIndexes, std::vector <ClampingModality_t> clampingModes, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setAdcCore, channelIndexes, clampingModes, applyFlag)
     }
     ErrorCodes_t enableCcStimulus(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(enableCcStimulus, channelIndexes, onValues, applyFlag)
@@ -206,6 +206,12 @@ public:
     }
     ErrorCodes_t setSourceForCurrentChannel(uint16_t source, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setSourceForCurrentChannel, source, applyFlag)
+    }
+    ErrorCodes_t readoutOffsetRecalibration(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(readoutOffsetRecalibration, channelIndexes, onValues, applyFlag)
+    }
+    ErrorCodes_t liquidJunctionCompensation(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(liquidJunctionCompensation, channelIndexes, onValues, applyFlag)
     }
     ErrorCodes_t digitalOffsetCompensation(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(digitalOffsetCompensation, channelIndexes, onValues, applyFlag)
@@ -321,6 +327,9 @@ public:
     WRAP_0_ARGS_RET_ERROR_CODES(hasOffsetCompensation)
     WRAP_0_ARGS_RET_ERROR_CODES(hasStimulusHalf)
     WRAP_0_ARGS_RET_ERROR_CODES(isStateArrayAvailable)
+    ErrorCodes_t getZapFeatures(RangedMeasurement_t &durationRange) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getZapFeatures, durationRange)
+    }
     ErrorCodes_t getCalibParams(CalibrationParams_t &calibParams) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getCalibParams, calibParams)
     }
@@ -335,6 +344,15 @@ public:
     }
     ErrorCodes_t getCalibMappingFilePath(std::string &path) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getCalibMappingFilePath, path)
+    }
+    ErrorCodes_t getCalibrationEepromSize(uint32_t &size) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getCalibrationEepromSize, size)
+    }
+    ErrorCodes_t writeCalibrationEeprom(std::vector <uint32_t> value, std::vector <uint32_t> address, std::vector <uint32_t> size) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(writeCalibrationEeprom, value, address, size)
+    }
+    ErrorCodes_t readCalibrationEeprom(std::vector <uint32_t> &value, std::vector <uint32_t> address, std::vector <uint32_t> size) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(readCalibrationEeprom, value, address, size)
     }
     ErrorCodes_t getCompFeatures(CompensationUserParams_t feature, std::vector<RangedMeasurement_t> &compensationFeatures, double &defaultParamValue) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getCompFeatures, feature, compensationFeatures, defaultParamValue)
@@ -445,6 +463,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         auto err = self.getChannelsOnRow(rowIdx, channels);
         return std::make_tuple(err, channels);
     })
+            .def("getDeviceName", &MessageDispatcher::getDeviceName)
             .def("getChannelsOnBoard", [=](MessageDispatcher &self, uint16_t boardIdx) {
         std::vector<ChannelModel *> channels;
         auto err = self.getChannelsOnBoard(boardIdx, channels);
@@ -454,12 +473,14 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("startProtocol",  &MessageDispatcher::startProtocol)
             .def("stopProtocol",  &MessageDispatcher::stopProtocol)
             .def("startStateArray",  &MessageDispatcher::startStateArray)
+            .def("zap", &MessageDispatcher::zap)
             .def("resetAsic",  &MessageDispatcher::resetAsic)
             .def("resetFpga",  &MessageDispatcher::resetFpga)
             .def("setVoltageHoldTuner",  &MessageDispatcher::setVoltageHoldTuner)
             .def("setCurrentHoldTuner",  &MessageDispatcher::setCurrentHoldTuner)
             .def("setVoltageHalf",  &MessageDispatcher::setVoltageHalf)
             .def("setCurrentHalf",  &MessageDispatcher::setCurrentHalf)
+            .def("resetOffsetRecalibration",  &MessageDispatcher::resetOffsetRecalibration)
             .def("setLiquidJunctionVoltage",  &MessageDispatcher::setLiquidJunctionVoltage)
             .def("resetLiquidJunctionVoltage",  &MessageDispatcher::resetLiquidJunctionVoltage)
             .def("setGateVoltages",  &MessageDispatcher::setGateVoltages)
@@ -496,7 +517,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("hasCalSw",  &MessageDispatcher::hasCalSw)
             .def("turnVcSwOn",  &MessageDispatcher::turnVcSwOn)
             .def("turnCcSwOn",  &MessageDispatcher::turnCcSwOn)
-            .def("turnVcCcSelOn",  &MessageDispatcher::turnVcCcSelOn)
+            .def("setAdcCore",  &MessageDispatcher::setAdcCore)
             .def("enableCcStimulus",  &MessageDispatcher::enableCcStimulus)
             .def("setClampingModality", [](MessageDispatcher &self, ClampingModality_t mode, bool applyFlag = true, bool stopProtocolFlag = true) {
         return self.setClampingModality(mode, applyFlag, stopProtocolFlag);
@@ -506,11 +527,14 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
     })
             .def("setSourceForVoltageChannel",  &MessageDispatcher::setSourceForVoltageChannel)
             .def("setSourceForCurrentChannel",  &MessageDispatcher::setSourceForCurrentChannel)
+            .def("readoutOffsetRecalibration",  &MessageDispatcher::readoutOffsetRecalibration)
+            .def("liquidJunctionCompensation",  &MessageDispatcher::liquidJunctionCompensation)
             .def("digitalOffsetCompensation",  &MessageDispatcher::digitalOffsetCompensation)
             .def("expandTraces",  &MessageDispatcher::expandTraces)
             .def("setAdcFilter",  &MessageDispatcher::setAdcFilter)
             .def("setSamplingRate",  &MessageDispatcher::setSamplingRate)
             .def("setDownsamplingRatio",  &MessageDispatcher::setDownsamplingRatio)
+            .def("setRawDataFilter",  &MessageDispatcher::setRawDataFilter)
             .def("setDebugBit",  &MessageDispatcher::setDebugBit)
             .def("setDebugWord",  &MessageDispatcher::setDebugWord)
             .def("turnVoltageReaderOn",  &MessageDispatcher::turnVoltageReaderOn)
@@ -574,6 +598,11 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         dData.resize(len);
         auto err = self.convertCurrentValues(data.data(), dData.data(), data.size());
         return std::make_tuple(err,  F64Buffer(dData.data(), len));
+    })
+            .def("getReadoutOffsetRecalibrationStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
+        std::vector<OffsetRecalibStatus> statuses;
+        auto err = self.getReadoutOffsetRecalibrationStatuses(channelIndexes, statuses);
+        return std::make_tuple(err, statuses);
     })
             .def("getLiquidJunctionVoltages", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
         std::vector<Measurement_t> voltages;
@@ -688,6 +717,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("hasProtocolRampFeature", &MessageDispatcher::hasProtocolRampFeature)
             .def("hasProtocolSinFeature", &MessageDispatcher::hasProtocolSinFeature)
             .def("isStateArrayAvailable", &MessageDispatcher::isStateArrayAvailable)
+            .def("getZapFeatures", &MessageDispatcher::getZapFeatures)
             .def("getCalibParams", [=](MessageDispatcher &self) {
         CalibrationParams_t calibParams;
         auto err = self.getCalibParams(calibParams);
@@ -701,6 +731,13 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
     })
             GET_STRING(getCalibMappingFileDir)
             GET_STRING(getCalibMappingFilePath)
+            GET_U32(getCalibrationEepromSize)
+            .def("writeCalibrationEeprom", &MessageDispatcher::writeCalibrationEeprom)
+            .def("readCalibrationEeprom", [=](MessageDispatcher &self, std::vector <uint32_t> address, std::vector <uint32_t> size) {
+        std::vector <uint32_t> value;
+        auto err = self.readCalibrationEeprom(value, address, size);
+        return std::make_tuple(err, value);
+    })
             .def("hasCompFeature", &MessageDispatcher::hasCompFeature)
             .def("getCompFeatures", [=](MessageDispatcher &self, MessageDispatcher::CompensationUserParams_t feature) {
         std::vector<RangedMeasurement_t> compensationFeatures;
@@ -861,6 +898,16 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .value("LiquidJunctionFailedSaturation",    LiquidJunctionFailedSaturation)
             .value("LiquidJunctionResetted",            LiquidJunctionResetted)
             .value("LiquidJunctionStatusesNum",         LiquidJunctionStatusesNum)
+            .export_values();
+
+    py::enum_<OffsetRecalibStatus>(m, "OffsetRecalibStatus")
+            .value("OffsetRecalibNotPerformed",         OffsetRecalibNotPerformed)
+            .value("OffsetRecalibExecuting",            OffsetRecalibExecuting)
+            .value("OffsetRecalibInterrupted",          OffsetRecalibInterrupted)
+            .value("OffsetRecalibSucceded",             OffsetRecalibSucceded)
+            .value("OffsetRecalibFailed",               OffsetRecalibFailed)
+            .value("OffsetRecalibResetted",             OffsetRecalibResetted)
+            .value("OffsetRecalibStatusesNum",          OffsetRecalibStatusesNum)
             .export_values();
 
     py::class_<Measurement_t>(m, "Measurement")
