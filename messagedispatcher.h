@@ -544,6 +544,24 @@ public:
      */
     virtual ErrorCodes_t updateCalibCcCurrentOffset(std::vector <uint16_t> channelIndexes, bool applyFlag);
 
+    /*! \brief Set a Rs correction offset on a specific channel.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to control.
+     * \param offsets [in] Vector of voltage offsets.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setCalibRsCorrOffsetDac(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> offsets, bool applyFlag);
+
+    /*! \brief Update the Rs correction offset on a specific channel.
+     *  \note Method used internally to set the correct calibration value after a range change.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to update.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t updateCalibRsCorrOffsetDac(std::vector <uint16_t> channelIndexes, bool applyFlag);
+
     /*! \brief Set a shunt resistance correction on a specific channel.
      *
      * \param channelIndexes [in] Vector of Indexes for the channels to control.
@@ -734,7 +752,7 @@ public:
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
-    virtual ErrorCodes_t readoutOffsetRecalibration(std::vector <uint16_t>, std::vector <bool>, bool);
+    virtual ErrorCodes_t readoutOffsetRecalibration(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag);
 
     /*! \brief Execute liquid junction compensation.
      * \note The liquid junction compensation tunes the offset of the applied voltage so that the acquired current is 0.
@@ -772,9 +790,10 @@ public:
     /*! \brief Update the ADC filter based on the current range and sampling rate configuration.
      *  \note Method used internally to automatically correct the filtering during range or sampling rate changes.
      *
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
-    virtual ErrorCodes_t setAdcFilter();
+    virtual ErrorCodes_t setAdcFilter(bool applyFlag = false);
 
     /*! \brief Set the sampling rate.
      *
@@ -1392,31 +1411,34 @@ public:
     /*! \brief Get the current ranges available in voltage clamp for the device.
      *
      * \param currentRanges [out] Array containing all the available current ranges in voltage clamp.
-     * \param defaultVcCurrRangeIdx [out] Default index
+     * \param defaultRangeIdx [out] Default index
      * \return Error code.
      */
-    ErrorCodes_t getVCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, uint16_t &defaultVcCurrRangeIdx);
+    ErrorCodes_t getVCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, uint16_t &defaultRangeIdx);
 
     /*! \brief Get the voltage ranges available in voltage clamp for the device.
      *
      * \param voltageRanges [out] Array containing all the available voltage ranges in voltage clamp.
+     * \param defaultRangeIdx [out] Default index
      * \return Error code.
      */
-    ErrorCodes_t getVCVoltageRanges(std::vector <RangedMeasurement_t> &voltageRanges);
+    ErrorCodes_t getVCVoltageRanges(std::vector <RangedMeasurement_t> &voltageRanges, uint16_t &defaultRangeIdx);
 
     /*! \brief Get the current ranges available in current clamp for the device.
      *
      * \param currentRanges [out] Array containing all the available current ranges in current clamp.
+     * \param defaultRangeIdx [out] Default index
      * \return Error code.
      */
-    ErrorCodes_t getCCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges);
+    ErrorCodes_t getCCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, uint16_t &defaultRangeIdx);
 
     /*! \brief Get the voltage ranges available in current clamp for the device.
      *
      * \param voltageRanges [out] Array containing all the available voltage ranges in current clamp.
+     * \param defaultRangeIdx [out] Default index
      * \return Error code.
      */
-    ErrorCodes_t getCCVoltageRanges(std::vector <RangedMeasurement_t> &voltageRanges);
+    ErrorCodes_t getCCVoltageRanges(std::vector <RangedMeasurement_t> &voltageRanges, uint16_t &defaultRangeIdx);
 
     /*! \brief Get the current range currently applied for voltage clamp.
      *
@@ -2014,6 +2036,7 @@ protected:
     void fillChannelList(uint16_t numOfBoards, uint16_t numOfChannelsOnBoard);
 
     void flushBoardList();
+
     /************\
      *  Fields  *
     \************/
@@ -2031,7 +2054,9 @@ protected:
     uint16_t totalBoardsNum = 1;
     uint16_t channelsPerBoard = 1;
 
-    /*! 20230531 MPAC: state array params*/
+    bool resetStateFlag = false;
+
+    /*! State array params */
     unsigned int stateMaxNum;
     unsigned int stateWordOffset;
     unsigned int stateWordsNum;
@@ -2148,7 +2173,8 @@ protected:
     CalibrationParams_t calibrationParams;
     CalibrationParams_t originalCalibrationParams;
     std::vector <RangedMeasurement_t> rRShuntConductanceCalibRange;
-    /*! Compensation options*/
+
+    /*! Compensation options  */
     std::vector <uint16_t> selectedRsCorrBws;
     std::vector <Measurement_t> rsCorrBwArray;
     uint16_t defaultRsCorrBwIdx;
@@ -2163,7 +2189,7 @@ protected:
 
     std::vector <CompensationControl_t> compensationControls[CompensationUserParamsNum];
 
-    /*! Default paramter values in USER domain*/
+    /*! Default parameter values in USER domain */
     std::vector <double> defaultUserDomainParams;
 
     std::vector <double> membraneCapValueInjCapacitance;

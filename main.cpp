@@ -31,6 +31,13 @@
 
 #define GET_RANGED_MEASUREMENT(fname) GENERAL_GET(fname, RangedMeasurement_t)
 #define GET_RANGED_MEASUREMENT_VEC(fname) GENERAL_GET(fname, std::vector<RangedMeasurement_t>)
+#define GET_RANGED_MEASUREMENT_VEC_AND_DEFAULT_IDX(fname) \
+    .def(#fname, [](MessageDispatcher &self) {\
+    std::vector<RangedMeasurement_t> rMeasurements;\
+    uint16_t i;\
+    auto err = self.fname(rMeasurements, i);\
+    return std::make_tuple(err, rMeasurements, i);\
+    })
 #define GET_MEASUREMENT(fname) GENERAL_GET(fname, Measurement_t)
 #define GET_MEASUREMENT_VEC(fname) GENERAL_GET(fname, std::vector<Measurement_t>)
 #define GET_U32(fname) GENERAL_GET(fname, uint32_t)
@@ -216,7 +223,9 @@ public:
     ErrorCodes_t digitalOffsetCompensation(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(digitalOffsetCompensation, channelIndexes, onValues, applyFlag)
     }
-    WRAP_0_ARGS_RET_ERROR_CODES(setAdcFilter)
+    ErrorCodes_t setAdcFilter(bool applyFlag = true) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setAdcFilter, applyFlag)
+    }
     ErrorCodes_t setSamplingRate(uint16_t samplingRateIdx, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setSamplingRate, samplingRateIdx, applyFlag)
     }
@@ -429,7 +438,7 @@ private:
 
 
 PYBIND11_MODULE(cl384_python_wrapper, m) {
-    py::class_<MessageDispatcher, PyMessageDispatcher>(m, "MessageDispatcher", py::buffer_protocol())
+    py::class_<MessageDispatcher, PyMessageDispatcher>(m, "MessageDispatcher", py::buffer_protocol(), py::module_local())
             .def(py::init<std::string>())  // Constructor
             .def_static("detectDevices", []() {
         std::vector <std::string> deviceIds;
@@ -655,9 +664,9 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         auto err = self.getVCCurrentRanges(currentRanges, defaultVcCurrRangeIdx);
         return std::make_tuple(err, currentRanges, defaultVcCurrRangeIdx);
     })
-            GET_RANGED_MEASUREMENT_VEC(getVCVoltageRanges)
-            GET_RANGED_MEASUREMENT_VEC(getCCCurrentRanges)
-            GET_RANGED_MEASUREMENT_VEC(getCCVoltageRanges)
+            GET_RANGED_MEASUREMENT_VEC_AND_DEFAULT_IDX(getVCVoltageRanges)
+            GET_RANGED_MEASUREMENT_VEC_AND_DEFAULT_IDX(getCCCurrentRanges)
+            GET_RANGED_MEASUREMENT_VEC_AND_DEFAULT_IDX(getCCVoltageRanges)
             GET_RANGED_MEASUREMENT(getVCCurrentRange)
             GET_RANGED_MEASUREMENT(getVCVoltageRange)
             GET_RANGED_MEASUREMENT(getLiquidJunctionRange)
@@ -910,7 +919,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .value("OffsetRecalibStatusesNum",          OffsetRecalibStatusesNum)
             .export_values();
 
-    py::class_<Measurement_t>(m, "Measurement")
+    py::class_<Measurement_t>(m, "Measurement", py::module_local())
             .def(py::init<double, UnitPfx_t, std::string>())
             .def_readonly("value", &Measurement_t::value)
             .def_readonly("prefix", &Measurement_t::prefix)
@@ -930,7 +939,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("nice", &Measurement_t::nice)
             ;
 
-    py::class_<RangedMeasurement_t>(m, "RangedMeasurement")
+    py::class_<RangedMeasurement_t>(m, "RangedMeasurement", py::module_local())
             .def(py::init<double, double, double, UnitPfx_t, std::string>())
             .def_readonly("min", &RangedMeasurement_t::min)
             .def_readonly("max", &RangedMeasurement_t::max)
@@ -957,7 +966,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("getClosestIndex", &RangedMeasurement_t::getClosestIndex)
             .def("includes", &RangedMeasurement_t::includes);
 
-    py::class_<ChannelModel>(m, "ChannelModel")
+    py::class_<ChannelModel>(m, "ChannelModel", py::module_local())
             .def(py::init<>())
             .def("getId", &ChannelModel::getId)
             .def("isOn", &ChannelModel::isOn)
@@ -988,7 +997,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("setVhalf", &ChannelModel::setVhalf)
             .def("setChalf", &ChannelModel::setChalf);
 
-    py::class_<BoardModel>(m, "BoardModel")
+    py::class_<BoardModel>(m, "BoardModel", py::module_local())
             .def(py::init<>())
             .def("getId", &BoardModel::getId)
             .def("getChannelsOnBoard", &BoardModel::getChannelsOnBoard)
@@ -1000,19 +1009,19 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("setSourceVoltage", &BoardModel::setSourceVoltage)
             .def("fillChannelList", &BoardModel::fillChannelList);
 
-    py::class_<I16Buffer>(m, "I16Buffer", py::buffer_protocol())
+    py::class_<I16Buffer>(m, "I16Buffer", py::buffer_protocol(), py::module_local())
             .def_buffer(&I16Buffer::get_buffer);
 
-    py::class_<F64Buffer>(m, "F64Buffer", py::buffer_protocol())
+    py::class_<F64Buffer>(m, "F64Buffer", py::buffer_protocol(), py::module_local())
             .def_buffer(&F64Buffer::get_buffer);
 
-    py::class_<RxOutput>(m, "RxOutput")
+    py::class_<RxOutput>(m, "RxOutput", py::module_local())
             .def(py::init<uint16_t,uint16_t,uint16_t,uint16_t,uint16_t,uint16_t,uint32_t,uint32_t,uint32_t>());
 
-    py::class_<ChannelSources>(m, "ChannelSources")
+    py::class_<ChannelSources>(m, "ChannelSources", py::module_local())
             .def(py::init<int16_t,int16_t,int16_t,int16_t,int16_t,int16_t,int16_t,int16_t>());
 
-    py::class_<CompensationControl>(m, "CompensationControl")
+    py::class_<CompensationControl>(m, "CompensationControl", py::module_local())
             .def(py::init<bool, double, double, double, double, double, double, int, double, UnitPfx_t, std::string, std::string>())
             .def("getPrefix", &CompensationControl::getPrefix)
             .def("getFullUnit", &CompensationControl::getFullUnit)
