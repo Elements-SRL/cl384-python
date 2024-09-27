@@ -83,6 +83,8 @@ Currently the Python wrapper of the e384commlib only works on Windows systems.
 - fw folder:
     - You can download it from [here](https://elements-ic.com/wp-content/uploads/2024/02/fw.zip)
     - currently the device firmware resides on the pc, hence to use the devices you'll have to unzip the fw zip and place it in a known path in order to use it on you scripts
+- EMCR:
+    - To correctly use these wrappers it is recommended to install EMCR in order to install the redistributables needed by the code
 
 > :warning: **The dlls must be used only with Python version 3.11.7**
 
