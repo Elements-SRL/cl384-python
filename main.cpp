@@ -445,7 +445,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         ErrorCodes_t err = MessageDispatcher::detectDevices(deviceIds);
         return std::make_tuple(err, deviceIds);
     }, "Detect plugged in devices")
-           .def_static("connectDevice",[](std::string deviceName, std::string fwFolder){
+    .def_static("connectDevice",[](std::string deviceName, std::string fwFolder){
         MessageDispatcher *md;
         auto ret = MessageDispatcher::connectDevice(deviceName, md, fwFolder);
         if (ret == Success) {
@@ -458,167 +458,179 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         auto err = self.getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwVersion);
         return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);
     })
-            .def("disconnectDevice", [](MessageDispatcher &self) {
+    .def("disconnectDevice", [](MessageDispatcher &self) {
         self.deallocateRxDataBuffer(data);
         self.disconnectDevice();
     })
-            .def("enableRxMessageType",  &MessageDispatcher::enableRxMessageType)
-            .def("setChannelSelected",  &MessageDispatcher::setChannelSelected)
-            .def("setBoardSelected",  &MessageDispatcher::setBoardSelected)
-            .def("setRowSelected",  &MessageDispatcher::setRowSelected)
-            .def("setAllChannelsSelected",  &MessageDispatcher::setAllChannelsSelected)
-            .def("getChannelsOnRow",  [=](MessageDispatcher &self, uint16_t rowIdx) {
+    .def("enableRxMessageType",  &MessageDispatcher::enableRxMessageType)
+    .def("setChannelSelected",  &MessageDispatcher::setChannelSelected)
+    .def("setBoardSelected",  &MessageDispatcher::setBoardSelected)
+    .def("setRowSelected",  &MessageDispatcher::setRowSelected)
+    .def("setAllChannelsSelected",  &MessageDispatcher::setAllChannelsSelected)
+    .def("getChannelsOnRow",  [=](MessageDispatcher &self, uint16_t rowIdx) {
         std::vector<ChannelModel *> channels;
         auto err = self.getChannelsOnRow(rowIdx, channels);
         return std::make_tuple(err, channels);
     })
-            .def("getDeviceName", &MessageDispatcher::getDeviceName)
-            .def("getChannelsOnBoard", [=](MessageDispatcher &self, uint16_t boardIdx) {
+    .def("getDeviceName", &MessageDispatcher::getDeviceName)
+    .def("getChannelsOnBoard", [=](MessageDispatcher &self, uint16_t boardIdx) {
         std::vector<ChannelModel *> channels;
         auto err = self.getChannelsOnBoard(boardIdx, channels);
         return std::make_tuple(err, channels);
     })
-            .def("sendCommands",  &MessageDispatcher::sendCommands)
-            .def("startProtocol",  &MessageDispatcher::startProtocol)
-            .def("stopProtocol",  &MessageDispatcher::stopProtocol)
-            .def("startStateArray",  &MessageDispatcher::startStateArray)
-            .def("zap", &MessageDispatcher::zap)
-            .def("resetAsic",  &MessageDispatcher::resetAsic)
-            .def("resetFpga",  &MessageDispatcher::resetFpga)
-            .def("setVoltageHoldTuner",  &MessageDispatcher::setVoltageHoldTuner)
-            .def("setCurrentHoldTuner",  &MessageDispatcher::setCurrentHoldTuner)
-            .def("setVoltageHalf",  &MessageDispatcher::setVoltageHalf)
-            .def("setCurrentHalf",  &MessageDispatcher::setCurrentHalf)
-            .def("resetOffsetRecalibration",  &MessageDispatcher::resetOffsetRecalibration)
-            .def("setLiquidJunctionVoltage",  &MessageDispatcher::setLiquidJunctionVoltage)
-            .def("resetLiquidJunctionVoltage",  &MessageDispatcher::resetLiquidJunctionVoltage)
-            .def("setGateVoltages",  &MessageDispatcher::setGateVoltages)
-            .def("setSourceVoltages",  &MessageDispatcher::setSourceVoltages)
-            .def("setCalibParams",  &MessageDispatcher::setCalibParams)
-            .def("setCalibVcCurrentGain",  &MessageDispatcher::setCalibVcCurrentGain)
-            .def("updateCalibVcCurrentGain",  &MessageDispatcher::updateCalibVcCurrentGain)
-            .def("setCalibVcCurrentOffset",  &MessageDispatcher::setCalibVcCurrentOffset)
-            .def("updateCalibVcCurrentOffset",  &MessageDispatcher::updateCalibVcCurrentOffset)
-            .def("setCalibCcVoltageGain",  &MessageDispatcher::setCalibCcVoltageGain)
-            .def("updateCalibCcVoltageGain",  &MessageDispatcher::updateCalibCcVoltageGain)
-            .def("setCalibCcVoltageOffset",  &MessageDispatcher::setCalibCcVoltageOffset)
-            .def("updateCalibCcVoltageOffset",  &MessageDispatcher::updateCalibCcVoltageOffset)
-            .def("setCalibVcVoltageGain",  &MessageDispatcher::setCalibVcVoltageGain)
-            .def("updateCalibVcVoltageGain",  &MessageDispatcher::updateCalibVcVoltageGain)
-            .def("setCalibVcVoltageOffset",  &MessageDispatcher::setCalibVcVoltageOffset)
-            .def("updateCalibVcVoltageOffset",  &MessageDispatcher::updateCalibVcVoltageOffset)
-            .def("setCalibCcCurrentGain",  &MessageDispatcher::setCalibCcCurrentGain)
-            .def("updateCalibCcCurrentGain",  &MessageDispatcher::updateCalibCcCurrentGain)
-            .def("setCalibCcCurrentOffset",  &MessageDispatcher::setCalibCcCurrentOffset)
-            .def("updateCalibCcCurrentOffset",  &MessageDispatcher::updateCalibCcCurrentOffset)
-            .def("setCalibRShuntConductance",  &MessageDispatcher::setCalibRShuntConductance)
-            .def("updateCalibRShuntConductance",  &MessageDispatcher::updateCalibRShuntConductance)
-            .def("setVCCurrentRange",  &MessageDispatcher::setVCCurrentRange)
-            .def("setVCVoltageRange",  &MessageDispatcher::setVCVoltageRange)
-            .def("setCCCurrentRange",  &MessageDispatcher::setCCCurrentRange)
-            .def("setCCVoltageRange",  &MessageDispatcher::setCCVoltageRange)
-            .def("setLiquidJunctionRange",  &MessageDispatcher::setLiquidJunctionRange)
-            .def("setVoltageStimulusLpf",  &MessageDispatcher::setVoltageStimulusLpf)
-            .def("setCurrentStimulusLpf",  &MessageDispatcher::setCurrentStimulusLpf)
-            .def("enableStimulus",  &MessageDispatcher::enableStimulus)
-            .def("turnChannelsOn",  &MessageDispatcher::turnChannelsOn)
-            .def("turnCalSwOn",  &MessageDispatcher::turnCalSwOn)
-            .def("hasCalSw",  &MessageDispatcher::hasCalSw)
-            .def("turnVcSwOn",  &MessageDispatcher::turnVcSwOn)
-            .def("turnCcSwOn",  &MessageDispatcher::turnCcSwOn)
-            .def("setAdcCore",  &MessageDispatcher::setAdcCore)
-            .def("enableCcStimulus",  &MessageDispatcher::enableCcStimulus)
-            .def("setClampingModality", [](MessageDispatcher &self, ClampingModality_t mode, bool applyFlag = true, bool stopProtocolFlag = true) {
+    .def("sendCommands",  &MessageDispatcher::sendCommands)
+    .def("startProtocol",  &MessageDispatcher::startProtocol)
+    .def("stopProtocol",  &MessageDispatcher::stopProtocol)
+    .def("startStateArray",  &MessageDispatcher::startStateArray)
+    .def("zap", &MessageDispatcher::zap)
+    .def("resetAsic",  &MessageDispatcher::resetAsic)
+    .def("resetFpga",  &MessageDispatcher::resetFpga)
+    .def("setVoltageHoldTuner",  &MessageDispatcher::setVoltageHoldTuner)
+    .def("setCurrentHoldTuner",  &MessageDispatcher::setCurrentHoldTuner)
+    .def("setVoltageHalf",  &MessageDispatcher::setVoltageHalf)
+    .def("setCurrentHalf",  &MessageDispatcher::setCurrentHalf)
+    .def("resetOffsetRecalibration",  &MessageDispatcher::resetOffsetRecalibration)
+    .def("setLiquidJunctionVoltage",  &MessageDispatcher::setLiquidJunctionVoltage)
+    .def("resetLiquidJunctionVoltage",  &MessageDispatcher::resetLiquidJunctionVoltage)
+    .def("setGateVoltages",  &MessageDispatcher::setGateVoltages)
+    .def("setSourceVoltages",  &MessageDispatcher::setSourceVoltages)
+    .def("setCalibParams",  &MessageDispatcher::setCalibParams)
+    .def("setCalibVcCurrentGain",  &MessageDispatcher::setCalibVcCurrentGain)
+    .def("updateCalibVcCurrentGain",  &MessageDispatcher::updateCalibVcCurrentGain)
+    .def("setCalibVcCurrentOffset",  &MessageDispatcher::setCalibVcCurrentOffset)
+    .def("updateCalibVcCurrentOffset",  &MessageDispatcher::updateCalibVcCurrentOffset)
+    .def("setCalibCcVoltageGain",  &MessageDispatcher::setCalibCcVoltageGain)
+    .def("updateCalibCcVoltageGain",  &MessageDispatcher::updateCalibCcVoltageGain)
+    .def("setCalibCcVoltageOffset",  &MessageDispatcher::setCalibCcVoltageOffset)
+    .def("updateCalibCcVoltageOffset",  &MessageDispatcher::updateCalibCcVoltageOffset)
+    .def("setCalibVcVoltageGain",  &MessageDispatcher::setCalibVcVoltageGain)
+    .def("updateCalibVcVoltageGain",  &MessageDispatcher::updateCalibVcVoltageGain)
+    .def("setCalibVcVoltageOffset",  &MessageDispatcher::setCalibVcVoltageOffset)
+    .def("updateCalibVcVoltageOffset",  &MessageDispatcher::updateCalibVcVoltageOffset)
+    .def("setCalibCcCurrentGain",  &MessageDispatcher::setCalibCcCurrentGain)
+    .def("updateCalibCcCurrentGain",  &MessageDispatcher::updateCalibCcCurrentGain)
+    .def("setCalibCcCurrentOffset",  &MessageDispatcher::setCalibCcCurrentOffset)
+    .def("updateCalibCcCurrentOffset",  &MessageDispatcher::updateCalibCcCurrentOffset)
+    .def("setCalibRShuntConductance",  &MessageDispatcher::setCalibRShuntConductance)
+    .def("updateCalibRShuntConductance",  &MessageDispatcher::updateCalibRShuntConductance)
+    .def("setVCCurrentRange",
+         static_cast<ErrorCodes_t (MessageDispatcher::*)(uint16_t, bool)>(&MessageDispatcher::setVCCurrentRange),
+         py::arg("currentRangeIdx"), py::arg("applyFlag"))
+
+    .def("setVCCurrentRange",
+         static_cast<ErrorCodes_t (MessageDispatcher::*)(std::vector<uint16_t>, std::vector<uint16_t>, bool)>(&MessageDispatcher::setVCCurrentRange),
+         py::arg("channelIndexes"), py::arg("currentRangeIdx"), py::arg("applyFlag"))
+    // .def("setVCCurrentRange",  &MessageDispatcher::setVCCurrentRange)
+    .def("setVCVoltageRange",  &MessageDispatcher::setVCVoltageRange)
+    .def("setCCCurrentRange",  &MessageDispatcher::setCCCurrentRange)
+    .def("setCCVoltageRange",
+         static_cast<ErrorCodes_t (MessageDispatcher::*)(uint16_t, bool)>(&MessageDispatcher::setCCVoltageRange),
+         py::arg("voltageRangeIdx"), py::arg("applyFlag"))
+    .def("setCCVoltageRange",
+         static_cast<ErrorCodes_t (MessageDispatcher::*)(std::vector<uint16_t>, std::vector<uint16_t>, bool)>(&MessageDispatcher::setCCVoltageRange),
+         py::arg("channelIndexes"), py::arg("voltageRangeIdx"), py::arg("applyFlag"))
+    .def("setLiquidJunctionRange",  &MessageDispatcher::setLiquidJunctionRange)
+    .def("setVoltageStimulusLpf",  &MessageDispatcher::setVoltageStimulusLpf)
+    .def("setCurrentStimulusLpf",  &MessageDispatcher::setCurrentStimulusLpf)
+    .def("enableStimulus",  &MessageDispatcher::enableStimulus)
+    .def("turnChannelsOn",  &MessageDispatcher::turnChannelsOn)
+    .def("turnCalSwOn",  &MessageDispatcher::turnCalSwOn)
+    .def("hasCalSw",  &MessageDispatcher::hasCalSw)
+    .def("turnVcSwOn",  &MessageDispatcher::turnVcSwOn)
+    .def("turnCcSwOn",  &MessageDispatcher::turnCcSwOn)
+    .def("setAdcCore",  &MessageDispatcher::setAdcCore)
+    .def("enableCcStimulus",  &MessageDispatcher::enableCcStimulus)
+    .def("setClampingModality", [](MessageDispatcher &self, ClampingModality_t mode, bool applyFlag = true, bool stopProtocolFlag = true) {
         return self.setClampingModality(mode, applyFlag, stopProtocolFlag);
     })
             .def("setClampingModality", [](MessageDispatcher &self, uint32_t idx, bool applyFlag = true, bool stopProtocolFlag = true) {
         return self.setClampingModality(idx, applyFlag, stopProtocolFlag);
     })
-            .def("setSourceForVoltageChannel",  &MessageDispatcher::setSourceForVoltageChannel)
-            .def("setSourceForCurrentChannel",  &MessageDispatcher::setSourceForCurrentChannel)
-            .def("readoutOffsetRecalibration",  &MessageDispatcher::readoutOffsetRecalibration)
-            .def("liquidJunctionCompensation",  &MessageDispatcher::liquidJunctionCompensation)
-            .def("digitalOffsetCompensation",  &MessageDispatcher::digitalOffsetCompensation)
-            .def("expandTraces",  &MessageDispatcher::expandTraces)
-            .def("setAdcFilter",  &MessageDispatcher::setAdcFilter)
-            .def("setSamplingRate",  &MessageDispatcher::setSamplingRate)
-            .def("setDownsamplingRatio",  &MessageDispatcher::setDownsamplingRatio)
-            .def("setRawDataFilter",  &MessageDispatcher::setRawDataFilter)
-            .def("setDebugBit",  &MessageDispatcher::setDebugBit)
-            .def("setDebugWord",  &MessageDispatcher::setDebugWord)
-            .def("turnVoltageReaderOn",  &MessageDispatcher::turnVoltageReaderOn)
-            .def("turnCurrentReaderOn",  &MessageDispatcher::turnCurrentReaderOn)
-            .def("turnVoltageStimulusOn",  &MessageDispatcher::turnVoltageStimulusOn)
-            .def("turnCurrentStimulusOn",  &MessageDispatcher::turnCurrentStimulusOn)
-            .def("setVoltageProtocolStructure",  &MessageDispatcher::setVoltageProtocolStructure)
-            .def("setVoltageProtocolStep",  &MessageDispatcher::setVoltageProtocolStep)
-            .def("setVoltageProtocolRamp",  &MessageDispatcher::setVoltageProtocolRamp)
-            .def("setVoltageProtocolSin",  &MessageDispatcher::setVoltageProtocolSin)
-            .def("setCurrentProtocolStructure",  &MessageDispatcher::setCurrentProtocolStructure)
-            .def("setCurrentProtocolStep",  &MessageDispatcher::setCurrentProtocolStep)
-            .def("setCurrentProtocolRamp",  &MessageDispatcher::setCurrentProtocolRamp)
-            .def("setCurrentProtocolSin",  &MessageDispatcher::setCurrentProtocolSin)
-            .def("setStateArrayStructure",  &MessageDispatcher::setStateArrayStructure)
-            .def("setSateArrayState",  &MessageDispatcher::setSateArrayState)
-            .def("setStateArrayEnabled",  &MessageDispatcher::setStateArrayEnabled)
-            .def("enableCompensation",  &MessageDispatcher::enableCompensation)
-            .def("enableVcCompensations",  &MessageDispatcher::enableVcCompensations)
-            .def("enableCcCompensations",  &MessageDispatcher::enableCcCompensations)
-            .def("setCompValues",  &MessageDispatcher::setCompValues)
-            .def("setCompOptions",  &MessageDispatcher::setCompOptions)
-            .def("setCustomFlag",  &MessageDispatcher::setCustomFlag)
-            .def("setCustomOption",  &MessageDispatcher::setCustomOption)
-            .def("setCustomDouble",  &MessageDispatcher::setCustomDouble)
+    .def("setSourceForVoltageChannel",  &MessageDispatcher::setSourceForVoltageChannel)
+    .def("setSourceForCurrentChannel",  &MessageDispatcher::setSourceForCurrentChannel)
+    .def("readoutOffsetRecalibration",  &MessageDispatcher::readoutOffsetRecalibration)
+    .def("liquidJunctionCompensation",  &MessageDispatcher::liquidJunctionCompensation)
+    .def("digitalOffsetCompensation",  &MessageDispatcher::digitalOffsetCompensation)
+    .def("expandTraces",  &MessageDispatcher::expandTraces)
+    .def("setAdcFilter",  &MessageDispatcher::setAdcFilter)
+    .def("setSamplingRate",  &MessageDispatcher::setSamplingRate)
+    .def("setDownsamplingRatio",  &MessageDispatcher::setDownsamplingRatio)
+    .def("setRawDataFilter",  &MessageDispatcher::setRawDataFilter)
+    .def("setDebugBit",  &MessageDispatcher::setDebugBit)
+    .def("setDebugWord",  &MessageDispatcher::setDebugWord)
+    .def("turnVoltageReaderOn",  &MessageDispatcher::turnVoltageReaderOn)
+    .def("turnCurrentReaderOn",  &MessageDispatcher::turnCurrentReaderOn)
+    .def("turnVoltageStimulusOn",  &MessageDispatcher::turnVoltageStimulusOn)
+    .def("turnCurrentStimulusOn",  &MessageDispatcher::turnCurrentStimulusOn)
+    .def("setVoltageProtocolStructure",  &MessageDispatcher::setVoltageProtocolStructure)
+    .def("setVoltageProtocolStep",  &MessageDispatcher::setVoltageProtocolStep)
+    .def("setVoltageProtocolRamp",  &MessageDispatcher::setVoltageProtocolRamp)
+    .def("setVoltageProtocolSin",  &MessageDispatcher::setVoltageProtocolSin)
+    .def("setCurrentProtocolStructure",  &MessageDispatcher::setCurrentProtocolStructure)
+    .def("setCurrentProtocolStep",  &MessageDispatcher::setCurrentProtocolStep)
+    .def("setCurrentProtocolRamp",  &MessageDispatcher::setCurrentProtocolRamp)
+    .def("setCurrentProtocolSin",  &MessageDispatcher::setCurrentProtocolSin)
+    .def("setStateArrayStructure",  &MessageDispatcher::setStateArrayStructure)
+    .def("setSateArrayState",  &MessageDispatcher::setSateArrayState)
+    .def("setStateArrayEnabled",  &MessageDispatcher::setStateArrayEnabled)
+    .def("enableCompensation",  &MessageDispatcher::enableCompensation)
+    .def("enableVcCompensations",  &MessageDispatcher::enableVcCompensations)
+    .def("enableCcCompensations",  &MessageDispatcher::enableCcCompensations)
+    .def("setCompValues",  &MessageDispatcher::setCompValues)
+    .def("setCompOptions",  &MessageDispatcher::setCompOptions)
+    .def("setCustomFlag",  &MessageDispatcher::setCustomFlag)
+    .def("setCustomOption",  &MessageDispatcher::setCustomOption)
+    .def("setCustomDouble",  &MessageDispatcher::setCustomDouble)
             GET_STRING(getSerialNumber)
-            .def("getBoards", [=](MessageDispatcher &self) {
+    .def("getBoards", [=](MessageDispatcher &self) {
         std::vector <BoardModel *> boards;
         auto err = self.getBoards(boards);
         return std::make_tuple(err, boards);
     })
-            .def("getChannels", [=](MessageDispatcher &self) {
+    .def("getChannels", [=](MessageDispatcher &self) {
         std::vector <ChannelModel *> channels;
         auto err = self.getChannels(channels);
         return std::make_tuple(err, channels);
     })
-            .def("getSelectedChannels", [=](MessageDispatcher &self) {
+    .def("getSelectedChannels", [=](MessageDispatcher &self) {
         std::vector <bool> selected;
         auto err = self.getSelectedChannels(selected);
         return std::make_tuple(err, selected);
     })
-            .def("getSelectedChannelsIndexes", [=](MessageDispatcher &self) {
+    .def("getSelectedChannelsIndexes", [=](MessageDispatcher &self) {
         std::vector <uint16_t> indexes;
         auto err = self.getSelectedChannelsIndexes(indexes);
         return std::make_tuple(err, indexes);
     })
             GET_U32(getRxDataBufferSize)
-            .def("getNextMessage", [=](MessageDispatcher &self) {
+    .def("getNextMessage", [=](MessageDispatcher &self) {
         auto err = self.getNextMessage(rxOutput, data);
         return std::make_tuple(err, rxOutput, I16Buffer(data, rxOutput.dataLen));
     })
-            .def("purgeData", &MessageDispatcher::purgeData)
-            .def("convertVoltageValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
+    .def("purgeData", &MessageDispatcher::purgeData)
+    .def("convertVoltageValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
         const auto len = data.size();
         dData.resize(len);
         auto err = self.convertVoltageValues(data.data(), dData.data(), data.size());
         return std::make_tuple(err,  F64Buffer(dData.data(), len));
     })
-            .def("convertCurrentValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
+    .def("convertCurrentValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
         const auto len = data.size();
         dData.resize(len);
         auto err = self.convertCurrentValues(data.data(), dData.data(), data.size());
         return std::make_tuple(err,  F64Buffer(dData.data(), len));
     })
-            .def("getReadoutOffsetRecalibrationStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
+    .def("getReadoutOffsetRecalibrationStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
         std::vector<OffsetRecalibStatus> statuses;
         auto err = self.getReadoutOffsetRecalibrationStatuses(channelIndexes, statuses);
         return std::make_tuple(err, statuses);
     })
-            .def("getLiquidJunctionVoltages", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
+    .def("getLiquidJunctionVoltages", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
         std::vector<Measurement_t> voltages;
         auto err = self.getLiquidJunctionVoltages(channelIndexes, voltages);
         return std::make_tuple(err, channelIndexes, voltages);
     })
-            .def("getLiquidJunctionStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
+    .def("getLiquidJunctionStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
         std::vector<LiquidJunctionStatus> statuses;
         auto err = self.getLiquidJunctionStatuses(channelIndexes, statuses);
         return std::make_tuple(err, statuses);
@@ -856,10 +868,12 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .export_values();
 
     py::enum_<ClampingModality_t>(m, "ClampingModality")
-            .value("VOLTAGE_CLAMP",         ClampingModality_t::VOLTAGE_CLAMP)
-            .value("CURRENT_CLAMP",         ClampingModality_t::CURRENT_CLAMP)
-            .value("DYNAMIC_CLAMP",         ClampingModality_t::DYNAMIC_CLAMP)
-            .value("ZERO_CURRENT_CLAMP",    ClampingModality_t::ZERO_CURRENT_CLAMP)
+            .value("VOLTAGE_CLAMP",                 ClampingModality_t::VOLTAGE_CLAMP)
+            .value("CURRENT_CLAMP",                 ClampingModality_t::CURRENT_CLAMP)
+            .value("DYNAMIC_CLAMP",                 ClampingModality_t::DYNAMIC_CLAMP)
+            .value("ZERO_CURRENT_CLAMP",            ClampingModality_t::ZERO_CURRENT_CLAMP)
+//            remove this for users
+//            .value("VOLTAGE_CLAMP_VOLTAGE_READ",    ClampingModality_t::VOLTAGE_CLAMP_VOLTAGE_READ)
             .export_values();
 
     py::enum_<MessageDispatcher::CompensationTypes>(m, "CompensationTypes")
@@ -919,6 +933,20 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .value("OffsetRecalibStatusesNum",          OffsetRecalibStatusesNum)
             .export_values();
 
+    py::enum_<CalibrationTypes>(m, "CalibrationTypes")
+        .value("CalTypesVcGainAdc",             CalTypesVcGainAdc)
+        .value("CalTypesVcOffsetAdc",           CalTypesVcOffsetAdc)
+        .value("CalTypesVcGainDac",             CalTypesVcGainDac)
+        .value("CalTypesVcOffsetDac",           CalTypesVcOffsetDac)
+        .value("CalTypesRsCorrOffsetDac",       CalTypesRsCorrOffsetDac)
+        .value("CalTypesRShuntConductance",     CalTypesRShuntConductance)
+        .value("CalTypesCcGainAdc",             CalTypesCcGainAdc)
+        .value("CalTypesCcOffsetAdc",           CalTypesCcOffsetAdc)
+        .value("CalTypesCcGainDac",             CalTypesCcGainDac)
+        .value("CalTypesCcOffsetDac",           CalTypesCcOffsetDac)
+        .value("CalTypesNum",                   CalTypesNum)
+        .export_values();
+
     py::class_<Measurement_t>(m, "Measurement", py::module_local())
             .def(py::init<double, UnitPfx_t, std::string>())
             .def_readonly("value", &Measurement_t::value)
@@ -975,7 +1003,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("isCompensatingCslowRs", &ChannelModel::isCompensatingCslowRs)
             .def("isCompensatingRsCp", &ChannelModel::isCompensatingRsCp)
             .def("isCompensatingRsPg", &ChannelModel::isCompensatingRsPg)
-            .def("isInStimActive", &ChannelModel::isInStimActive)
+            .def("isStimActive", &ChannelModel::isStimActive)
             .def("isSelected", &ChannelModel::isSelected)
             .def("getVhold", &ChannelModel::getVhold)
             .def("getChold", &ChannelModel::getChold)
@@ -991,7 +1019,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("setCompensatingRsCp", &ChannelModel::setCompensatingRsCp)
             .def("setCompensatingRsPg", &ChannelModel::setCompensatingRsPg)
             .def("setCompensatingCcCfast", &ChannelModel::setCompensatingCcCfast)
-            .def("setInStimActive", &ChannelModel::setInStimActive)
+            .def("setStimActive", &ChannelModel::setStimActive)
             .def("setVhold", &ChannelModel::setVhold)
             .def("setChold", &ChannelModel::setChold)
             .def("setVhalf", &ChannelModel::setVhalf)
@@ -1026,4 +1054,9 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("getPrefix", &CompensationControl::getPrefix)
             .def("getFullUnit", &CompensationControl::getFullUnit)
             .def("title", &CompensationControl::title);
+
+    py::class_<CalibrationParams_t>(m, "CalibrationParams")
+        .def(py::init<>())  // Default constructor
+        .def("initialize", &CalibrationParams_t::initialize)
+        .def("getSamplingMode", &CalibrationParams_t::getSamplingMode);
 }
