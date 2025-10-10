@@ -56,11 +56,6 @@
 #define RX_32WORD_SIZE (sizeof(uint32_t)) // 16 bit word
 #define RX_FEW_PACKETS_COEFF 0.01 /*!< = 10.0/1000.0: 10.0 because I want to get data once every 10ms, 1000 to convert sampling rate from Hz to kHz */
 #define RX_MAX_BYTES_TO_WAIT_FOR 16384
-#define RX_MSG_BUFFER_SIZE 0x10000 // ~64k
-#define RX_MSG_BUFFER_MASK (RX_MSG_BUFFER_SIZE-1)
-#define RX_DATA_BUFFER_SIZE 0x10000000 /*! ~256M The biggest data frame possible has a dataload of 1024 words (4 x 10MHz current frame)
-                                           So this buffer has to be at least 1024 times bigger than RX_MSG_BUFFER_SIZE */
-#define RX_DATA_BUFFER_MASK (RX_DATA_BUFFER_SIZE-1)
 
 #define TX_WORD_SIZE (sizeof(uint16_t)) // 16 bit word
 #define TX_MSG_BUFFER_SIZE 0x100 /*!< Number of messages. Always use a power of 2 for efficient circular buffer management through index masking */
@@ -73,7 +68,6 @@ using namespace e384CommLib;
 
 class E384COMMLIBSHARED_EXPORT MessageDispatcher {
 public:
-
     typedef struct FwUpgradeInfo { /*! Defaults to "no upgrades available" */
         bool available = false;
         unsigned char fwVersion = 0xFF;
@@ -94,6 +88,20 @@ public:
     /*! \brief Destructor.
      */
     virtual ~MessageDispatcher();
+
+    typedef enum RxMessageTypes {
+        RxMessageDataLoad,
+        RxMessageVoltageThenCurrentDataLoad,
+        RxMessageCurrentDataLoad,
+        RxMessageCurrentBlocksDataLoad,
+        RxMessageVoltageDataLoad,
+        RxMessageVoltageAndGpDataLoad,
+        RxMessageDataHeader,
+        RxMessageDataTail,
+        RxMessageStatus,
+        RxMessageTemperature,
+        RxMessageNum
+    } RxMessageTypes_t;
 
     typedef enum CompensationTypes {
         CompCfast = 0,      // pipette voltage clamp
@@ -134,15 +142,13 @@ public:
      */
     static ErrorCodes_t detectDevices(std::vector <std::string> &deviceIds);
 
-    /*! \brief Get information about a connected device.
+    /*! \brief Get information about plugged in device.
+     *  \note Do not use this method if you already connected to the device via the connectDevice method
      *
      * \param deviceId [in] Serial number of the device.
      * \param deviceVersion [out] Version of the device (device family). -1 if not available.
      * \param deviceSubVersion [out] Subversion of the device (increases with PCB changes). -1 if not available.
      * \param fwVersion [out] Version of the firmware (increases with device's firmware). -1 if not available.
-     * \note The available device versions with the corresponding devices sub versions are found
-     *       as enums in some header files, more specifically, devices/EMCR/emcrudbdevice.h and
-     *       devices/EZPatch/ftdieeprom.h
      * \return Error code.
      */
     static ErrorCodes_t getDeviceInfo(std::string deviceId, unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion);
@@ -207,37 +213,6 @@ public:
      *  Channels overview support methods  *
     \***************************************/
 
-    /*! \brief Command used by EMCR to keep track of the channels selected in the channels overview.
-     *
-     * \param chIdx [in] Channel index.
-     * \param newState [in] true: channel selected; false: channel not selected.
-     * \return Error code.
-     */
-    ErrorCodes_t setChannelSelected(uint16_t chIdx, bool newState);
-
-    /*! \brief Command used by EMCR to keep track of the boards selected in the channels overview.
-     *
-     * \param brdIdx [in] board index.
-     * \param newState [in] true: board selected; false: board not selected.
-     * \return Error code.
-     */
-    ErrorCodes_t setBoardSelected(uint16_t brdIdx, bool newState);
-
-    /*! \brief Command used by EMCR to keep track of the rows of channels selected in the channels overview.
-     *
-     * \param rowIdx [in] row index.
-     * \param newState [in] true: row of channels selected; false: row of channels not selected.
-     * \return Error code.
-     */
-    ErrorCodes_t setRowSelected(uint16_t rowIdx, bool newState);
-
-    /*! \brief Command used by EMCR to keep track of the channels selected in the channels overview.
-     *
-     * \param newState [in] true: all channels selected; false: all channels not selected.
-     * \return Error code.
-     */
-    ErrorCodes_t setAllChannelsSelected(bool newState);
-
     /*! \brief Command used by EMCR to get the channel models for the board selected in the channels overview.
      *
      * \param boardIdx [in] board index.
@@ -259,6 +234,15 @@ public:
      * \return The name as a std::string.
      */
     std::string getDeviceName();
+
+    /*! \brief Get information about a connected device.
+     *
+     * \param deviceVersion [out] Version of the device (device family). -1 if not available.
+     * \param deviceSubVersion [out] Subversion of the device (increases with PCB changes). -1 if not available.
+     * \param fwVersion [out] Version of the firmware (increases with device's firmware). -1 if not available.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion) = 0;
 
     /****************\
      *  Tx methods  *
@@ -349,6 +333,22 @@ public:
      * \return Error code.
      */
     virtual ErrorCodes_t setCurrentHalf(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> currents, bool applyFlag);
+
+
+    /*! \brief Set the voltage reference for the device.
+     *
+     * \param voltage [in] Voltage (in mV) for the reference.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setVoltageReference(Measurement_t voltage, bool applyFlag);
+
+    /*! \brief Activate or deactivate the automatic subtraction of the liquid junction compensated in VC from the CC readout.
+     *
+     * \param flag [in] true: the liquid junction potential is subtracted from the CC readout; false: the CC readout is unaffected.
+     * \return Error code.
+     */
+    ErrorCodes_t subtractLiquidJunctionFromCc(bool flag);
 
     /*! \brief Set the current offset to the default value.
      *
@@ -580,13 +580,24 @@ public:
      */
     virtual ErrorCodes_t updateCalibRShuntConductance(std::vector <uint16_t> channelIndexes, bool applyFlag);
 
-    /*! \brief Set the current range for voltage clamp.
+    /*! \brief Set the current range for voltage clamp for all channels.
+     * \note set range for all channels for devices which can set different ranges to different channels.
      *
      * \param currentRangeIdx [in] Index of the current range to be set.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
     virtual ErrorCodes_t setVCCurrentRange(uint16_t currentRangeIdx, bool applyFlag);
+
+    /*! \brief Set the current range for voltage clamp for the selected channels.
+     * \note usable only for devices which can set different ranges to different channels.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to update.
+     * \param currentRangeIdx [in] Vector of indexes of the current range to be set.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setVCCurrentRange(std::vector <uint16_t> channelIndexes, std::vector <uint16_t> currentRangeIdx, bool applyFlag);
 
     /*! \brief Set the voltage range for voltage clamp.
      *
@@ -604,13 +615,24 @@ public:
      */
     virtual ErrorCodes_t setCCCurrentRange(uint16_t currentRangeIdx, bool applyFlag);
 
-    /*! \brief Set the voltage range for current clamp.
+    /*! \brief Set the voltage range for current clamp for all channels.
+     * \note set range for all channels for devices which can set different ranges to different channels.
      *
      * \param voltageRangeIdx [in] Index of the voltage range to be set.
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
     virtual ErrorCodes_t setCCVoltageRange(uint16_t voltageRangeIdx, bool applyFlag);
+
+    /*! \brief Set the voltage range for current clamp for all channels.
+     * \note usable only for devices which can set different ranges to different channels.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to update.
+     * \param voltageRangeIdx [in] Vector of indexes of the voltage range to be set.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setCCVoltageRange(std::vector <uint16_t> channelIndexes, std::vector <uint16_t> voltageRangeIdx, bool applyFlag);
 
     /*! \brief Set the voltage range for liquid junction correction voltage clamp.
      *
@@ -779,13 +801,13 @@ public:
      */
     virtual ErrorCodes_t digitalOffsetCompensation(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues, bool applyFlag);
 
-    /*! \brief Command used by EMCR to keep track of the expanded traces in the main plot.
-     *
+    /*! \brief Set currents to be kept by tuning the voltage.
      * \param channelIndexes [in] Channel indexes.
-     * \param onValues [in] Array of booleans, one for each channel: True to set a channel as expanded, false to set it as not expanded.
+     * \param currents [in] Array of desired currents.
+     * \param enable [in] true: takes control of the voltage to get the desired current; false: stops the current tracking algorithm.
      * \return Error code.
      */
-    ErrorCodes_t expandTraces(std::vector <uint16_t> channelIndexes, std::vector <bool> onValues);
+    virtual ErrorCodes_t setCurrentTracking(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> currents, bool enable);
 
     /*! \brief Update the ADC filter based on the current range and sampling rate configuration.
      *  \note Method used internally to automatically correct the filtering during range or sampling rate changes.
@@ -822,25 +844,6 @@ public:
      * \return Error code.
      */
     ErrorCodes_t setRawDataFilter(Measurement_t cutoffFrequency, bool lowPassFlag, bool activeFlag);
-
-    /*! \brief Set a debug bit.
-     *  \note Debug command.
-     *
-     * \param wordOffset [in] word of the debug bit to be modified.
-     * \param bitOffset [in] debug bit to be modified.
-     * \param status [in] new status of the debug bit.
-     * \return Error code.
-     */
-    virtual ErrorCodes_t setDebugBit(uint16_t wordOffset, uint16_t bitOffset, bool status);
-
-    /*! \brief Set a debug word.
-     *  \note Debug command.
-     *
-     * \param wordOffset [in] word of the debug bit to be modified.
-     * \param word value [in] new value for the debug word.
-     * \return Error code.
-     */
-    virtual ErrorCodes_t setDebugWord(uint16_t wordOffset, uint16_t wordValue);
 
     /*! \brief Turn on/off the voltage reader for each channel.
      *  \note The voltage is read by the current clamp ADC.
@@ -1120,6 +1123,29 @@ public:
 
     /*! Device specific controls */
 
+    /*! \brief Set cooling fans speed.
+     *
+     * \param speed [in] Desired speed.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setCoolingFansSpeed(Measurement_t speed, bool applyFlag);
+
+    /*! \brief Set and/or activate temperature control.
+     *
+     * \param temperature [in] Desired temperature.
+     * \param enabled [in] true: temperature control active; false: temperature control disabled.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setTemperatureControl(Measurement_t temperature, bool enabled);
+
+    /*! \brief Set temperature control PID parameters.
+     *
+     * \param PidParams_t [in] Struct with PID parameters.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setTemperatureControlPid(PidParams_t params);
+
     /*! \brief Set a custom flag.
      *
      * \param idx [in] Index of the flag to be set.
@@ -1147,6 +1173,25 @@ public:
      */
     virtual ErrorCodes_t setCustomDouble(uint16_t idx, double value, bool applyFlag);
 
+    /*! \brief Set a debug bit.
+     *  \note Debug command.
+     *
+     * \param wordOffset [in] word of the debug bit to be modified.
+     * \param bitOffset [in] debug bit to be modified.
+     * \param status [in] new status of the debug bit.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setDebugBit(uint16_t wordOffset, uint16_t bitOffset, bool status);
+
+    /*! \brief Set a debug word.
+     *  \note Debug command.
+     *
+     * \param wordOffset [in] word of the debug bit to be modified.
+     * \param word value [in] new value for the debug word.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setDebugWord(uint16_t wordOffset, uint16_t wordValue);
+
     /****************\
      *  Rx methods  *
     \****************/
@@ -1171,20 +1216,6 @@ public:
      * \return Error code.
      */
     ErrorCodes_t getChannels(std::vector <ChannelModel *> &channels);
-
-    /*! \brief Command used by EMCR to get the device's selected channels.
-     *
-     * \param selected [out] Vector of booleans. True if the correspnding channel is selected.
-     * \return Error code.
-     */
-    ErrorCodes_t getSelectedChannels(std::vector <bool> &selected);
-
-    /*! \brief Command used by EMCR to get the device's selected channels.
-     *
-     * \param selected [out] Vector of indexes correspnding to the selected channels.
-     * \return Error code.
-     */
-    ErrorCodes_t getSelectedChannelsIndexes(std::vector <uint16_t> &indexes);
 
     /*! \brief Get the size of the buffer to be passed to getNextMessage.
      *
@@ -1228,6 +1259,7 @@ public:
     virtual ErrorCodes_t purgeData();
 
     /*! \brief Convert a voltage value returned by getNextMessage from integer to floating point.
+     * \note To be used for devices which can set a single range to all channels.
      *
      * \param intValue [in] Integer voltage value obtained with the getNextMessage method.
      * \param fltValue [out] Floating point voltage value expressed in the unit of the selected voltage range.
@@ -1235,13 +1267,34 @@ public:
      */
     ErrorCodes_t convertVoltageValue(int16_t intValue, double &fltValue);
 
+    /*! \brief Convert a voltage value returned by getNextMessage from integer to floating point.
+     * \note To be used for devices which can set different ranges to different channels.
+     *
+     * \param intValue [in] Integer voltage value obtained with the getNextMessage method.
+     * \param channelIdx [in] Index of the channel.
+     * \param fltValue [out] Floating point voltage value expressed in the unit of the selected voltage range.
+     * \return Error code.
+     */
+    ErrorCodes_t convertVoltageValue(int16_t intValue, uint16_t channelIdx, double &fltValue);
+
     /*! \brief Convert a current value returned by getNextMessage from integer to floating point.
+     * \note To be used for devices which can set a single range to all channels.
      *
      * \param intValue [in] Integer current value obtained with the getNextMessage method.
      * \param fltValue [out] Floating point current value expressed in the unit of the selected current range.
      * \return Error code.
      */
     ErrorCodes_t convertCurrentValue(int16_t intValue, double &fltValue);
+
+    /*! \brief Convert a current value returned by getNextMessage from integer to floating point.
+     * \note To be used for devices which can set different ranges to different channels.
+     *
+     * \param intValue [in] Integer current value obtained with the getNextMessage method.
+     * \param channelIdx [in] Index of the channel.
+     * \param fltValue [out] Floating point current value expressed in the unit of the selected current range.
+     * \return Error code.
+     */
+    ErrorCodes_t convertCurrentValue(int16_t intValue, uint16_t channelIdx, double &fltValue);
 
     /*! \brief Convert an array of voltage values returned by getNextMessage from integer to floating point.
      *
@@ -1250,7 +1303,7 @@ public:
      * \param valuesNum [in] Number of values in the array.
      * \return Error code.
      */
-    ErrorCodes_t convertVoltageValues(int16_t * intValue, double * fltValue, int valuesNum);
+    ErrorCodes_t convertVoltageValues(int16_t * intValues, double * fltValues, int valuesNum);
 
     /*! \brief Convert an array of current values returned by getNextMessage from integer to floating point.
      *
@@ -1259,7 +1312,16 @@ public:
      * \param valuesNum [in] Number of values in the array.
      * \return Error code.
      */
-    ErrorCodes_t convertCurrentValues(int16_t * intValue, double * fltValue, int valuesNum);
+    ErrorCodes_t convertCurrentValues(int16_t * intValues, double * fltValues, int valuesNum);
+
+    /*! \brief Convert an array of temperature values returned by getNextMessage from integer to floating point.
+     *
+     * \param intValue [in] Array of integer temperature values obtained with the getNextMessage method.
+     * \param fltValue [out] Array of floating point temperature values expressed in the unit of the temperature range for the corresponding channel.
+     * \note The number of items must match the number of temperature channels.
+     * \return Error code.
+     */
+    ErrorCodes_t convertTemperatureValues(int16_t * intValues, double * fltValues);
 
     /*! \brief Get the current status of the readout offset recalibration algorithm for each channel.
      *
@@ -1291,6 +1353,13 @@ public:
      * \return Error code.
      */
     virtual ErrorCodes_t getVoltageHoldTunerFeatures(std::vector <RangedMeasurement_t> &voltageHoldTuner);
+
+    /*! \brief Get the voltage currently applied by the hold tuner
+     *
+     * \param voltageHoldTuner [out] Vector of measurements.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t getVoltageHoldTuner(std::vector <Measurement_t> &voltages);
 
     /*! \brief Get the voltage half features, e.g. ranges, step, ...
      *
@@ -1364,6 +1433,15 @@ public:
      */
     ErrorCodes_t getChannelNumberFeatures(int &voltageChannelNumber, int &currentChannelNumber);
 
+    /*! \brief Get the number of channels for the device.
+     *
+     * \param voltageChannelNumber [out] Number of voltage channels.
+     * \param currentChannelNumber [out] Number of current channels.
+     * \param gpChannelNumber [out] Number of general purpose channels.
+     * \return Error code.
+     */
+    ErrorCodes_t getChannelNumberFeatures(int &voltageChannelNumber, int &currentChannelNumber, int &gpChannelNumber);
+
     /*! \brief Get the available data sources for all channels type.
      * \note Unavailable sources have index -1.
      *
@@ -1372,6 +1450,18 @@ public:
      * \return Error code.
      */
     ErrorCodes_t getAvailableChannelsSourcesFeatures(ChannelSources_t &voltageSourcesIdxs, ChannelSources_t &currentSourcesIdxs);
+
+    /*! \brief return wether or not a device is capable of episodic plot.
+     *
+     * \return Success True if the device is capable of episodic plot.
+     */
+    ErrorCodes_t isEpisodic();
+
+    /*! \brief return wether or not a device provides proper header packets.
+     *
+     * \return Success if the device provides proper header packets.
+     */
+    ErrorCodes_t hasProperHeaderPackets();
 
     /*! \brief Get the number of boards for the device.
      *
@@ -1408,6 +1498,18 @@ public:
      */
     ErrorCodes_t getClampingModalityIdx(uint32_t &idx);
 
+    /*! \brief Check if the device can set different current ranges for different channels in voltage clamp.
+     *
+     * \return Success if the device can set different current ranges for different channels in voltage clamp.
+     */
+    virtual ErrorCodes_t hasIndependentVCCurrentRanges();
+
+    /*! \brief Check if the device can set different voltage ranges for different channels in current clamp.
+     *
+     * \return Success if the device can set different voltage ranges for different channels in current clamp.
+     */
+    virtual ErrorCodes_t hasIndependentCCVoltageRanges();
+
     /*! \brief Get the current ranges available in voltage clamp for the device.
      *
      * \param currentRanges [out] Array containing all the available current ranges in voltage clamp.
@@ -1441,11 +1543,19 @@ public:
     ErrorCodes_t getCCVoltageRanges(std::vector <RangedMeasurement_t> &voltageRanges, uint16_t &defaultRangeIdx);
 
     /*! \brief Get the current range currently applied for voltage clamp.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param range [out] Current range currently applied for voltage clamp.
      * \return Error code.
      */
     ErrorCodes_t getVCCurrentRange(RangedMeasurement_t &range);
+
+    /*! \brief Get the current ranges currently applied for voltage clamp.
+     *
+     * \param range [out] Current range currently applied for voltage clamp.
+     * \return Error code.
+     */
+    ErrorCodes_t getVCCurrentRange(std::vector <RangedMeasurement_t> &ranges);
 
     /*! \brief Get the voltage range currently applied for voltage clamp.
      *
@@ -1469,18 +1579,34 @@ public:
     ErrorCodes_t getCCCurrentRange(RangedMeasurement_t &range);
 
     /*! \brief Get the voltage range currently applied for current clamp.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param range [out] Voltage range currently applied for current clamp.
      * \return Error code.
      */
     ErrorCodes_t getCCVoltageRange(RangedMeasurement_t &range);
 
+    /*! \brief Get the voltage ranges currently applied for current clamp.
+     *
+     * \param range [out] Voltage range currently applied for current clamp.
+     * \return Error code.
+     */
+    ErrorCodes_t getCCVoltageRange(std::vector <RangedMeasurement_t> &ranges);
+
     /*! \brief Get the current range currently applied for voltage clamp.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param idx [out] Index of the current range currently applied for voltage clamp.
      * \return Error code.
      */
     ErrorCodes_t getVCCurrentRangeIdx(uint32_t &idx);
+
+    /*! \brief Get the current ranges currently applied for voltage clamp.
+     *
+     * \param idxs [out] Index of the current range currently applied for voltage clamp.
+     * \return Error code.
+     */
+    ErrorCodes_t getVCCurrentRangeIdx(std::vector <uint32_t> &idxs);
 
     /*! \brief Get the voltage range currently applied for voltage clamp.
      *
@@ -1497,25 +1623,49 @@ public:
     ErrorCodes_t getCCCurrentRangeIdx(uint32_t &idx);
 
     /*! \brief Get the voltage range currently applied for current clamp.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param idx [out] Index of the voltage range currently applied for current clamp.
      * \return Error code.
      */
     ErrorCodes_t getCCVoltageRangeIdx(uint32_t &idx);
 
+    /*! \brief Get the voltage ranges currently applied for current clamp.
+     *
+     * \param idxs [out] Index of the voltage range currently applied for current clamp.
+     * \return Error code.
+     */
+    ErrorCodes_t getCCVoltageRangeIdx(std::vector <uint32_t> &idxs);
+
     /*! \brief Get the voltage range currently applied independently of the clamping modality.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param range [out] Voltage range currently applied.
      * \return Error code.
      */
     ErrorCodes_t getVoltageRange(RangedMeasurement_t &range);
 
+    /*! \brief Get the voltage range currently applied independently of the clamping modality.
+     *
+     * \param ranges [out] Voltage range currently applied.
+     * \return Error code.
+     */
+    ErrorCodes_t getVoltageRange(std::vector <RangedMeasurement_t> &ranges);
+
     /*! \brief Get the current range currently applied independently of the clamping modality.
+     * \note usable only for devices which cannot set different ranges to different channels.
      *
      * \param range [out] Current range currently applied.
      * \return Error code.
      */
     ErrorCodes_t getCurrentRange(RangedMeasurement_t &range);
+
+    /*! \brief Get the current range currently applied independently of the clamping modality.
+     *
+     * \param ranges [out] Current range currently applied.
+     * \return Error code.
+     */
+    ErrorCodes_t getCurrentRange(std::vector <RangedMeasurement_t> &ranges);
 
     /*! \brief Get the max current range for voltage clamp.
      *
@@ -1580,6 +1730,15 @@ public:
      * \return Error code.
      */
     ErrorCodes_t getMinCCVoltageRange(RangedMeasurement_t &range, uint32_t &idx);
+
+    /*! \brief Get information on the temperature channels.
+     *
+     * \param names [out] Array containing the name of each temperature channel.
+     * \param ranges [out] Array containing the range for each temperature channel.
+     *
+     * \return Error code.
+     */
+    ErrorCodes_t getTemperatureChannelsFeatures(std::vector <std::string> &names, std::vector <RangedMeasurement_t> &ranges);
 
     /*! \brief Get the sampling rates available for the device.
      *
@@ -1844,6 +2003,13 @@ public:
      */
     virtual ErrorCodes_t getCalibMappingFilePath(std::string &path);
 
+    /*! \brief Configure the device to enable read/write of the calibration eeprom.
+     *
+     * \param calibModeFlag [in] true to enable the calibration mode; false to return to normal operation mode.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setCalibrationMode(bool calibModeFlag);
+
     /*! \brief Get calibration eeprom size in bytes.
      *
      * \param size [out] Size of the calibration eeprom in bytes.
@@ -1896,7 +2062,7 @@ public:
     /*! \brief Get the state of a compensation type for some channels.
      *
      * \param matrix [in]: Matrix of compensated values; the external vector has an item for each channel,
-     * each internal vector has an item for each CompensationTypes_t.
+     * each internal vector has an item for each CompensationUserParams_t.
      * \note columns corresponding to not implemented compensation types are always zero and can be ignored.
      * \note the values might differ from the values set by user because of rounding factors, clipping and interactions with other compensations.
      * \return Success if the device implements any compensation.
@@ -1921,6 +2087,13 @@ public:
     virtual ErrorCodes_t getCompensationControl(CompensationUserParams_t param, CompensationControl_t &control);
 
     /*! Device specific controls */
+
+    /*! \brief Get cooling fans speed.
+     *
+     * \param range [out] Speed Range.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t getCoolingFansSpeedRange(RangedMeasurement_t &range);
 
     /*! \brief Get the specifications of the custom controls of type boolean.
      *
@@ -1949,23 +2122,21 @@ public:
     ErrorCodes_t getCustomDoubles(std::vector <std::string> &customDoubles, std::vector <RangedMeasurement_t> &customDoublesRanges, std::vector <double> &customDoublesDefault);
 
 protected:
-    typedef enum RxMessageTypes {
-        RxMessageDataLoad,
-        RxMessageVoltageThenCurrentDataLoad,
-        RxMessageCurrentDataLoad,
-        RxMessageVoltageDataLoad,
-        RxMessageDataHeader,
-        RxMessageDataTail,
-        RxMessageStatus,
-        RxMessageNum
-    } RxMessageTypes_t;
-
     typedef struct MsgResume {
         uint16_t typeId;
         uint16_t heartbeat;
         uint32_t dataLength;
         uint32_t startDataPtr;
     } MsgResume_t;
+
+    typedef enum LiquidJunctionProcessing {
+        LiquidJunctionProcessingTransientsStarted,
+        LiquidJunctionProcessingWaitTransients,
+        LiquidJunctionProcessingResetRequired,
+        LiquidJunctionProcessingCollectData,
+        LiquidJunctionProcessingWaitCommandApplied,
+        LiquidJunctionProcessingNum,
+    } LiquidJunctionProcessing_t;
 
     typedef enum OffsetRecalibState {
         OffsetRecalibIdle,
@@ -1977,19 +2148,6 @@ protected:
         OffsetRecalibTerminate,
         OffsetRecalibStatesNum
     } OffsetRecalibState_t;
-
-    typedef enum LiquidJunctionState {
-        LiquidJunctionIdle,
-        LiquidJunctionStarting,
-        LiquidJunctionFirstStep,
-        LiquidJunctionConverge,
-        LiquidJunctionSuccess,
-        LiquidJunctionFailOpenCircuit,
-        LiquidJunctionFailTooManySteps,
-        LiquidJunctionFailSaturation,
-        LiquidJunctionTerminate,
-        LiquidJunctionStatesNum
-    } LiquidJunctionState_t;
 
     typedef enum ParsingStatus {
         ParsingNone,
@@ -2016,10 +2174,9 @@ protected:
     void closeDebugFiles();
     virtual void joinCommunicationThreads() = 0;
 
-    void computeLiquidJunction();
     virtual void initializeCalibration();
     virtual void deinitializeCalibration();
-    void initializeLiquidJunction();
+    virtual void initializeLiquidJunction();
 
     bool checkProtocolValidity(std::string &message);
 
@@ -2028,6 +2185,7 @@ protected:
     void computeRawDataFilterCoefficients();
     double applyRawDataFilter(uint16_t channelIdx, double x, double * iirNum, double * iirDen);
 
+    uint32_t getSamplingRateModesNum();
     virtual std::vector <double> user2AsicDomainTransform(int chIdx, std::vector <double> userDomainParams);
     virtual std::vector <double> asic2UserDomainTransform(int chIdx, std::vector <double> asicDomainParams, double oldUCpVc, double oldUCpCc);
     virtual ErrorCodes_t asic2UserDomainCompensable(int chIdx, std::vector <double> asicDomainParams, std::vector <double> userDomainParams);
@@ -2046,7 +2204,8 @@ protected:
 
     uint16_t voltageChannelsNum = 1;
     uint16_t currentChannelsNum = 1;
-    uint16_t totalChannelsNum = voltageChannelsNum+currentChannelsNum;
+    uint16_t gpChannelsNum = 0;
+    uint16_t totalChannelsNum = voltageChannelsNum+currentChannelsNum+gpChannelsNum;
 
     ChannelSources_t availableVoltageSourcesIdxs;
     ChannelSources_t availableCurrentSourcesIdxs;
@@ -2054,8 +2213,14 @@ protected:
     uint16_t totalBoardsNum = 1;
     uint16_t channelsPerBoard = 1;
 
-    bool resetStateFlag = false;
+    uint16_t temperatureChannelsNum = 0;
+    std::vector <std::string> temperatureChannelsNames;
+    std::vector <RangedMeasurement_t> temperatureChannelsRanges;
 
+    bool canDoEpisodic = false;
+    bool properHeaderPackets = false;
+
+    bool resetStateFlag = false;
     /*! State array params */
     unsigned int stateMaxNum;
     unsigned int stateWordOffset;
@@ -2096,9 +2261,12 @@ protected:
     std::vector <ClampingModality_t> clampingModalitiesArray;
     uint16_t defaultClampingModalityIdx = 0;
 
+    bool independentVcCurrentRanges = false;
+    bool independentCcVoltageRanges = false;
+
     uint32_t vcCurrentRangesNum = 0;
-    uint32_t selectedVcCurrentRangeIdx = 0;
-    uint32_t storedVcCurrentRangeIdx = 0;
+    std::vector <uint16_t> selectedVcCurrentRangeIdx;
+    std::vector <uint16_t> storedVcCurrentRangeIdx;
     std::vector <RangedMeasurement_t> vcCurrentRangesArray;
     uint16_t defaultVcCurrentRangeIdx = 0;
 
@@ -2118,9 +2286,14 @@ protected:
     uint16_t defaultCcCurrentRangeIdx = 0;
 
     uint32_t ccVoltageRangesNum = 0;
-    uint32_t selectedCcVoltageRangeIdx = 0;
+    std::vector <uint16_t> selectedCcVoltageRangeIdx;
     std::vector <RangedMeasurement_t> ccVoltageRangesArray;
     uint16_t defaultCcVoltageRangeIdx = 0;
+
+    uint32_t gpRangesNum = 0;
+    std::vector <uint16_t> selectedGpRangeIdx;
+    std::vector <RangedMeasurement_t> gpRangesArray;
+    uint16_t defaultGpRangeIdx = 0;
 
     uint32_t vcCurrentFiltersNum = 0;
     uint32_t selectedVcCurrentFilterIdx = 0;
@@ -2143,6 +2316,7 @@ protected:
     uint16_t defaultCcVoltageFilterIdx = 0;
 
     uint32_t samplingRatesNum;
+    std::unordered_map <uint32_t, uint32_t> sr2srm; /*! sampling rate to sampling rate mode mapping */
     std::vector <Measurement_t> realSamplingRatesArray;
     std::vector <Measurement_t> integrationStepArray;
     unsigned int defaultSamplingRateIdx = 0;
@@ -2161,6 +2335,8 @@ protected:
 
     std::vector <Measurement_t> selectedLiquidJunctionVector; /*! \todo FCON sostituibile con le info reperibili dai channel model? */
     std::vector <int16_t> ccLiquidJunctionVector;
+    std::vector <int16_t> ccLiquidJunctionVectorApplied;
+    bool subtractLiquidJunctionFromCcFlag = false;
 
     RangedMeasurement_t gateVoltageRange;
     std::vector <Measurement_t> selectedGateVoltageVector;
@@ -2181,6 +2357,7 @@ protected:
 
     /*! Features in ASIC domain, depend on asic*/
     std::vector <RangedMeasurement> pipetteCapacitanceRange;
+    std::vector <RangedMeasurement> ccPipetteCapacitanceRange;
     std::vector <RangedMeasurement> membraneCapValueRange;
     std::vector <RangedMeasurement> membraneCapTauValueRange;
     RangedMeasurement_t rsCorrValueRange;
@@ -2207,26 +2384,12 @@ protected:
     std::vector <OffsetRecalibStatus_t> offsetRecalibStatuses;
     std::vector <OffsetRecalibState_t> offsetRecalibStates;
 
-    std::vector <LiquidJunctionStatus_t> liquidJunctionStatuses;
-    std::vector <LiquidJunctionState_t> liquidJunctionStates;
-    std::vector <int64_t> liquidJunctionCurrentSums;
-    std::vector <double> liquidJunctionCurrentEstimates;
-    int64_t liquidJunctionCurrentEstimatesNum;
-    std::vector <Measurement_t> liquidJunctionVoltagesBackup;
-    std::vector <double> liquidJunctionDeltaVoltages;
-    std::vector <double> liquidJunctionDeltaCurrents;
-    std::vector <double> liquidJunctionSmallestCurrentChange;
-    std::vector <uint16_t> liquidJunctionConvergingCount;
-    std::vector <uint16_t> liquidJunctionConvergedCount;
-    std::vector <uint16_t> liquidJunctionPositiveSaturationCount;
-    std::vector <uint16_t> liquidJunctionNegativeSaturationCount;
-    std::vector <uint16_t> liquidJunctionOpenCircuitCount;
-
-    std::string deviceId;
+    std::string deviceId = "";
     std::string deviceName = "undefined";
 
     bool threadsStarted = false;
     bool stopConnectionFlag = false;
+    bool calibrationModeFlag = false;
     ParsingStatus_t parsingStatus = ParsingNone;
 
     std::vector <BoardModel *> boardModels;
@@ -2234,13 +2397,15 @@ protected:
 
     uint16_t selectedSamplingRateIdx = 0;
 
-    double currentResolution = 1.0;
-    double voltageResolution = 1.0;
+    std::vector <double> currentResolutions;
+    std::vector <double> voltageResolutions;
+    std::vector <double> gpResolutions;
     double liquidJunctionResolution = 1.0;
     bool liquidJunctionSameRangeAsVcDac = true;
 
-    RangedMeasurement_t voltageRange;
-    RangedMeasurement_t currentRange;
+    std::vector <RangedMeasurement_t> voltageRanges;
+    std::vector <RangedMeasurement_t> currentRanges;
+    std::vector <RangedMeasurement_t> gpRanges;
     RangedMeasurement_t liquidJunctionRange;
 
     Measurement_t samplingRate = {200.0, UnitPfxKilo, "Hz"};
@@ -2262,6 +2427,8 @@ protected:
     std::vector <std::string> customDoublesNames;
     std::vector <RangedMeasurement_t> customDoublesRanges;
     std::vector <double> customDoublesDefault;
+
+    std::vector <LiquidJunctionStatus_t> liquidJunctionStatuses;
 
     /***********************\
      *  Filters variables  *
@@ -2302,6 +2469,8 @@ protected:
 
     mutable std::mutex ljMutex;
     bool liquidJunctionControlPending = false;
+    LiquidJunctionProcessing_t liquidJunctionProcessing = LiquidJunctionProcessingTransientsStarted;
+    std::chrono::steady_clock::time_point liquidJunctionTransientsStartTime;
 
     std::thread liquidJunctionThread;
 
@@ -2329,6 +2498,11 @@ protected:
 #ifdef DEBUG_LIQUID_JUNCTION_PRINT
     FILE * ljFid = nullptr;
 #endif
+
+#ifdef DEBUG_TEMP_PRINT
+    FILE * tempFid = nullptr;
+#endif
+
 };
 
 #endif // MESSAGEDISPATCHER_H
