@@ -8,7 +8,7 @@ TARGET = cl384_python_wrapper
 SOURCES += \
         main.cpp
 
-#DEFINES += PYTHON_3_10
+# DEFINES += PYTHON_3_10
 DEFINES += PYTHON_3_11
 
 contains(DEFINES, PYTHON_3_10) {
