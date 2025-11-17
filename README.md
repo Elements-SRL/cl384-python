@@ -79,7 +79,7 @@ Currently the Python wrapper of the e384commlib only works on Windows systems.
 ##### Requirements
 - Python **3.11.7**
 - custom dlls (e384commlib v0.18.0):
-    - You can download them from [here](https://elements-ic.com/wp-content/uploads/2024/02/python_3_11_7_dlls.zip)
+    - You can download them from [here](https://elements-ic.com/python_3_11_7_dlls/)
 - fw folder:
     - You can download it from [here](https://elements-ic.com/wp-content/uploads/2024/02/fw.zip)
     - currently the device firmware resides on the pc, hence to use the devices you'll have to unzip the fw zip and place it in a known path in order to use it on you scripts
