@@ -316,6 +316,18 @@ public:
      */
     virtual ErrorCodes_t setCurrentHoldTuner(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> currents, bool applyFlag);
 
+    /*! \brief Set the ramp voltage tuner. This ramp is added to the whole voltage protocol currently applied and to the following.
+     * \note The ramps start immediately when this command is issued.
+     *
+     * \param channelIndexes [in] Vector of Indexes for the channels to control.
+     * \param initialVoltages [in] Vector of ramp initial voltage.
+     * \param finalVoltages [in] Vector of ramp final voltage.
+     * \param durations [in] Vector of ramp duration.
+     * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t setVoltageRampTuner(std::vector <uint16_t> channelIndexes, std::vector <Measurement_t> initialVoltages, std::vector <Measurement_t> finalVoltages, std::vector <Measurement_t> durations, bool applyFlag = true);
+
     /*! \brief Set the channel voltage half. This value is added to the voltage protocol items that have the vHalfFlag set.
      *
      * \param channelIndexes [in] Vector of Indexes for the channels to control.
@@ -373,7 +385,7 @@ public:
      * \param applyFlag [in] true: immediately submit the command to the device; false: submit together with the next command.
      * \return Error code.
      */
-    ErrorCodes_t resetLiquidJunctionVoltage(std::vector <uint16_t> channelIndexes, bool applyFlag);
+    virtual ErrorCodes_t resetLiquidJunctionVoltage(std::vector <uint16_t> channelIndexes, bool applyFlag);
 
     /*! \brief Set the gate voltage on a specific board.
      *
@@ -1382,6 +1394,14 @@ public:
      */
     virtual ErrorCodes_t getCurrentHalfFeatures(std::vector <RangedMeasurement_t> &currentHalfTuner);
 
+    /*! \brief Get the voltage ramp tuner features, e.g. ranges, step, ...
+     *
+     * \param voltageRanges [out] Vector of ranges for the ramp voltage in each stimulus range.
+     * \param durationRange [out] Range for the ramp duration.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t getVoltageRampTunerFeatures(std::vector <RangedMeasurement_t> &voltageRanges, RangedMeasurement_t &durationRange);
+
     /*! \brief Get the liquid junction voltage ranges.
      *
      * \param ranges [out] Vector of ranges for liquid junction compensation.
@@ -2333,6 +2353,10 @@ protected:
     Measurement_t defaultVoltageHalfTuner = {0.0, UnitPfxNone, "V"};
     Measurement_t defaultCurrentHalfTuner = {0.0, UnitPfxNone, "A"};
 
+    Measurement_t defaultVInitRampTuner = {0.0, UnitPfxNone, "V"};
+    Measurement_t defaultVFinalRampTuner = {0.0, UnitPfxNone, "V"};
+    Measurement_t defaultTRampTuner = {0.0, UnitPfxNone, "s"};
+
     std::vector <Measurement_t> selectedLiquidJunctionVector; /*! \todo FCON sostituibile con le info reperibili dai channel model? */
     std::vector <int16_t> ccLiquidJunctionVector;
     std::vector <int16_t> ccLiquidJunctionVectorApplied;
@@ -2461,8 +2485,6 @@ protected:
      *  Multi-thread synchronization variables  *
     \********************************************/
 
-    mutable std::mutex connectionMutex;
-
     mutable std::mutex txMutex;
     std::condition_variable txMsgBufferNotEmpty;
     std::condition_variable txMsgBufferNotFull;
@@ -2474,35 +2496,14 @@ protected:
 
     std::thread liquidJunctionThread;
 
-#if defined(DEBUG_TX_DATA_PRINT) || defined(DEBUG_RX_DATA_PRINT)
     std::chrono::steady_clock::time_point startPrintfTime;
     std::chrono::steady_clock::time_point currentPrintfTime;
-#endif
 
-#ifdef DEBUG_TX_DATA_PRINT
     FILE * txFid = nullptr;
-#endif
-
-#ifdef DEBUG_RX_RAW_DATA_PRINT
     FILE * rxRawFid = nullptr;
-#endif
-
-#ifdef DEBUG_RX_PROCESSING_PRINT
-    FILE * rxProcFid = nullptr;
-#endif
-
-#ifdef DEBUG_RX_DATA_PRINT
     FILE * rxFid = nullptr;
-#endif
-
-#ifdef DEBUG_LIQUID_JUNCTION_PRINT
     FILE * ljFid = nullptr;
-#endif
-
-#ifdef DEBUG_TEMP_PRINT
     FILE * tempFid = nullptr;
-#endif
-
 };
 
 #endif // MESSAGEDISPATCHER_H

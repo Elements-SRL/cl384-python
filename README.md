@@ -78,11 +78,8 @@ Currently the Python wrapper of the e384commlib only works on Windows systems.
 #### Windows
 ##### Requirements
 - Python **3.11.7**
-- custom dlls (e384commlib v0.18.0):
+- custom dlls (e384commlib v0.22.2):
     - You can download them from [here](https://elements-ic.com/python_3_11_7_dlls/)
-- fw folder:
-    - You can download it from [here](https://elements-ic.com/wp-content/uploads/2024/02/fw.zip)
-    - currently the device firmware resides on the pc, hence to use the devices you'll have to unzip the fw zip and place it in a known path in order to use it on you scripts
 - EMCR:
     - To correctly use these wrappers it is recommended to install EMCR in order to install the redistributables needed by the code
 
@@ -124,4 +121,3 @@ Activate the virtual environment with: ```Scripts\activate```
 Run the script : ```python .\your_script.py```
 
 To test that the installation has been successful, just run ```python example.py``` from within the directory and with the venv already active.
-Please remember to change the fw path to the path in wich you previously unzipped it and install (using pip) both numpy and matplotlib (which are used in the example).

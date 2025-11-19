@@ -38,6 +38,13 @@
     auto err = self.fname(rMeasurements, i);\
     return std::make_tuple(err, rMeasurements, i);\
     })
+#define GET_RANGED_MEASUREMENT_VEC_AND_RANGED_MEASUREMENT(fname) \
+    .def(#fname, [](MessageDispatcher &self) {\
+    std::vector<RangedMeasurement_t> rMeasurements;\
+    RangedMeasurement_t rMeasurement;\
+    auto err = self.fname(rMeasurements, rMeasurement);\
+    return std::make_tuple(err, rMeasurements, rMeasurement);\
+    })
 #define GET_MEASUREMENT(fname) GENERAL_GET(fname, Measurement_t)
 #define GET_MEASUREMENT_VEC(fname) GENERAL_GET(fname, std::vector<Measurement_t>)
 #define GET_U32(fname) GENERAL_GET(fname, uint32_t)
@@ -90,11 +97,17 @@ public:
     ErrorCodes_t setCurrentHoldTuner(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> currents, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentHoldTuner, channelIndexes, currents, applyFlag)
     }
+    ErrorCodes_t setVoltageRampTuner(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> initialVoltages, std::vector <Measurement_t> finalVoltages, std::vector <Measurement_t> durations, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageRampTuner, channelIndexes, initialVoltages, finalVoltages, durations, applyFlag)
+    }
     ErrorCodes_t setVoltageHalf(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> voltages, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageHalf, channelIndexes, voltages, applyFlag)
     }
     ErrorCodes_t setCurrentHalf(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> currents, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentHalf, channelIndexes, currents, applyFlag)
+    }
+    ErrorCodes_t setVoltageReference(Measurement_t voltage, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageReference, voltage, applyFlag)
     }
     ErrorCodes_t setLiquidJunctionVoltage(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> voltages, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setLiquidJunctionVoltage, channelIndexes, voltages, applyFlag)
@@ -177,6 +190,9 @@ public:
     ErrorCodes_t setLiquidJunctionRange(uint16_t idx) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setLiquidJunctionRange, idx)
     }
+    ErrorCodes_t resetLiquidJunctionVoltage(std::vector<uint16_t> channelIndexes, bool applyFlag) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(resetLiquidJunctionVoltage, channelIndexes, applyFlag)
+    }
     ErrorCodes_t setVoltageStimulusLpf(uint16_t filterIdx, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageStimulusLpf, filterIdx, applyFlag)
     }
@@ -222,6 +238,9 @@ public:
     }
     ErrorCodes_t digitalOffsetCompensation(std::vector<uint16_t> channelIndexes, std::vector<bool> onValues, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(digitalOffsetCompensation, channelIndexes, onValues, applyFlag)
+    }
+    ErrorCodes_t setCurrentTracking(std::vector<uint16_t> channelIndexes, std::vector<Measurement_t> currents, bool enable) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentTracking, channelIndexes, currents, enable)
     }
     ErrorCodes_t setAdcFilter(bool applyFlag = true) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setAdcFilter, applyFlag)
@@ -319,6 +338,9 @@ public:
     }
     ErrorCodes_t getCurrentHalfFeatures(std::vector <RangedMeasurement_t> &currentHalfTuner) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getCurrentHalfFeatures, currentHalfTuner)
+    }
+    ErrorCodes_t getVoltageRampTunerFeatures(std::vector <RangedMeasurement_t> &voltageRanges, RangedMeasurement_t &durationRange) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getVoltageRampTunerFeatures, voltageRanges, durationRange)
     }
     ErrorCodes_t getLiquidJunctionRangesFeatures(std::vector <RangedMeasurement_t> &ranges) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getLiquidJunctionRangesFeatures, ranges)
@@ -445,9 +467,9 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         ErrorCodes_t err = MessageDispatcher::detectDevices(deviceIds);
         return std::make_tuple(err, deviceIds);
     }, "Detect plugged in devices")
-           .def_static("connectDevice",[](std::string deviceName, std::string fwFolder){
+           .def_static("connectDevice",[](std::string deviceName){
         MessageDispatcher *md;
-        auto ret = MessageDispatcher::connectDevice(deviceName, md, fwFolder);
+        auto ret = MessageDispatcher::connectDevice(deviceName, md);
         if (ret == Success) {
             ret = md->allocateRxDataBuffer(data);
         }
@@ -487,8 +509,10 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("resetFpga",  &MessageDispatcher::resetFpga)
             .def("setVoltageHoldTuner",  &MessageDispatcher::setVoltageHoldTuner)
             .def("setCurrentHoldTuner",  &MessageDispatcher::setCurrentHoldTuner)
+            .def("setVoltageRampTuner",  &MessageDispatcher::setVoltageRampTuner)
             .def("setVoltageHalf",  &MessageDispatcher::setVoltageHalf)
             .def("setCurrentHalf",  &MessageDispatcher::setCurrentHalf)
+            .def("setVoltageReference",  &MessageDispatcher::setVoltageReference)
             .def("resetOffsetRecalibration",  &MessageDispatcher::resetOffsetRecalibration)
             .def("setLiquidJunctionVoltage",  &MessageDispatcher::setLiquidJunctionVoltage)
             .def("resetLiquidJunctionVoltage",  &MessageDispatcher::resetLiquidJunctionVoltage)
@@ -539,6 +563,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             .def("readoutOffsetRecalibration",  &MessageDispatcher::readoutOffsetRecalibration)
             .def("liquidJunctionCompensation",  &MessageDispatcher::liquidJunctionCompensation)
             .def("digitalOffsetCompensation",  &MessageDispatcher::digitalOffsetCompensation)
+            .def("setCurrentTracking",  &MessageDispatcher::setCurrentTracking)
             .def("expandTraces",  &MessageDispatcher::expandTraces)
             .def("setAdcFilter",  &MessageDispatcher::setAdcFilter)
             .def("setSamplingRate",  &MessageDispatcher::setSamplingRate)
@@ -626,6 +651,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             GET_RANGED_MEASUREMENT_VEC(getVoltageHoldTunerFeatures)
             GET_RANGED_MEASUREMENT_VEC(getVoltageHalfFeatures)
             GET_RANGED_MEASUREMENT_VEC(getCurrentHalfFeatures)
+            GET_RANGED_MEASUREMENT_VEC_AND_RANGED_MEASUREMENT(getVoltageRampTunerFeatures)
             GET_RANGED_MEASUREMENT_VEC(getLiquidJunctionRangesFeatures)
             GET_RANGED_MEASUREMENT_VEC(getVoltageHoldTunerFeatures)
             .def("hasGateVoltages", &MessageDispatcher::hasGateVoltages)

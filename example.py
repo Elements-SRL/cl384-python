@@ -9,7 +9,7 @@ err, devices = e384.MessageDispatcher.detectDevices()
 if err != e384.ErrorCodes.Success:
     print("connection failed")
     sys.exit()
-err, md = e384.MessageDispatcher.connectDevice(devices[0], r"C:\Users\lucar\development\EMCR\FW")
+err, md = e384.MessageDispatcher.connectDevice(devices[0])
 if err != e384.ErrorCodes.Success:
     print("connection failed")
     sys.exit()
