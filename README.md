@@ -11,7 +11,7 @@ For example, the function ```getChannelNumberFeatures``` in C++ is defined as:
 ```cpp
 ErrorCodes_t getChannelNumberFeatures(uint16_t &voltageChannelNumber, uint16_t &currentChannelNumber);
 ```
-and its usage would be something like the follwing:
+and its usage would be something like the following:
 ```cpp
 // let's assume that md is a correctly initialized MessageDispatcher
 uint16_t voltageChannelNumber, currentChannelNumber;
@@ -40,6 +40,10 @@ err, voltages = md.getLiquidJunctionVoltages(ch_indexes)
 
 In general, all parameters passed by reference and modified by the function in the Python wrapper are returned as a tuple, along with the error code. The number and order of the input parameters in the various functions remain unchanged.
 
+## Performance considerations
+Some of the devices this library can communicate with are able to stream huge amount of data very quickly, so the performance of the final application can be an issue in some situations.
+The typical undesirable effects of an application that can't keep the pace with the data stream are data loss and lag.
+Below are some pieces of advice to improve the overall acquisition performance.
 
 ### Reading the data
 The communication library returns values that are **16 bit signed integers**, to get the real values they need to be multiplied by the resolution of the respective range.
@@ -69,7 +73,14 @@ while len(i_data) < samples_num:
 ```
 From this snippet you can notice other 2 things:
 1. We put the data from the commlib in a np.array using the flag ```copy=False```, this gives the wrapper the possibility to use the C++ data without having to make fresh and costly copies.
-2. The data returned by the commlib is organized in sectors, in particular, there are **n** voltage values (where n is the number of the voltage channels) followed by m current values (where **m** is the number of current channels), so to have it disposed in a more convienient way we can reshape the matrix to the total channels number like we did in the snippet to have all the values in the columns and by calling transpose we organize them in rows. In this way the first n rows will contain the voltages and the rows that go from n to n + m will contain the currents. 
+2. The data returned by the commlib is organized in sectors, in particular, there are **n** voltage values (where n is the number of the voltage channels) followed by m current values (where **m** is the number of current channels), so to have it disposed in a more convienient way we can reshape the matrix to the total channels number like we did in the snippet to have all the values in the columns and by calling transpose we organize them in rows. In this way the first n rows will contain the voltages and the rows that go from n to n + m will contain the currents.
+
+### Sampling rate and downsampling ratio
+Reduce the sampling rate as much as possible, since this parameters controls the data throughput from the device to the application, so it affects the effort for data reading and data processing. A rule of thumb is the following: if you're interested in the bandwidth [0; BW], acquire at the smallest sampling rate which is greater than 4 x BW
+On the other hand, don't use downsampling ratios greater than 1. The downsampling is performed in software, so the PC still acquires all of the data and then in order to downsample, it has to low pass filter the data stream. So the acquisition effort doesn't change, while the data processing increases.
+
+### Other applications
+If you're still low on computational resources, close resource hungry applications, such as browsers.
 
 ## Working with the wrapper
 ### Installation
@@ -91,7 +102,7 @@ Once installed locate the python interpreter, should be under the following path
 
 Open a **command prompt**.
 
-Navigate to the folder you wish to install the calibrator to.
+Navigate to the folder you wish to install the project to.
 
 Now you need to use Python to create a **virtual environment** also called **venv**.
 
