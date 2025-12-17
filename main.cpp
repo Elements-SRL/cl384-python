@@ -248,7 +248,7 @@ public:
     ErrorCodes_t setSamplingRate(uint16_t samplingRateIdx, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setSamplingRate, samplingRateIdx, applyFlag)
     }
-    ErrorCodes_t setDebugBit(uint16_t wordOffset, uint16_t bitOffset, bool status) override {
+    ErrorCodes_t setDebugBit(uint16_t wordOffset, uint16_t bitOffset, bool status, bool applyFlag = true) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setDebugBit, wordOffset, bitOffset, status)
     }
     ErrorCodes_t setDebugWord(uint16_t wordOffset, uint16_t wordValue) override {
