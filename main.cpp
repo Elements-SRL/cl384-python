@@ -74,7 +74,7 @@ public:
         PYBIND11_OVERRIDE_PURE(ErrorCodes_t, MessageDispatcher, initialize, fwPath);
     }
     WRAP_0_ARGS_PURE(void, deinitialize)
-    WRAP_0_ARGS_RET_ERROR_CODES_PURE(disconnectDevice)
+    WRAP_0_ARGS_RET_ERROR_CODES(disconnectDevice)
     ErrorCodes_t enableRxMessageType(MsgTypeId_t messageType, bool flag) override {
         PYBIND11_OVERRIDE_PURE(ErrorCodes_t, MessageDispatcher, enableRxMessageType, messageType, flag);
     }
@@ -501,6 +501,11 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def_static("detectDevices", []() {
             std::vector <std::string> deviceIds;
             ErrorCodes_t err = MessageDispatcher::detectDevices(deviceIds);
+            return std::make_tuple(err, deviceIds);
+        }, "Detect plugged in devices")
+        .def_static("listAllDevices", []() {
+            std::vector <std::string> deviceIds;
+            ErrorCodes_t err = MessageDispatcher::listAllDevices(deviceIds);
             return std::make_tuple(err, deviceIds);
         }, "Detect plugged in devices")
         .def_static("connectDevice",[](std::string deviceName){
