@@ -135,12 +135,20 @@ public:
      *  Connection methods  *
     \************************/
 
-    /*! \brief Detects plugged in devices.
+    /*! \brief Detects devices the library can connect to.
+     *  \note the device must be recognizable and not already owned.
+     *
+     * \param deviceIds [out] List devices IDs.
+     * \return Error code.
+     */
+    static ErrorCodes_t detectDevices(std::vector <std::string> &deviceIds);
+
+    /*! \brief Lists all plugged in devices.
      *
      * \param deviceIds [out] List of plugged in devices IDs.
      * \return Error code.
      */
-    static ErrorCodes_t detectDevices(std::vector <std::string> &deviceIds);
+    static ErrorCodes_t listAllDevices(std::vector <std::string> &deviceIds);
 
     /*! \brief Get information about plugged in device.
      *  \note Do not use this method if you already connected to the device via the connectDevice method
@@ -198,7 +206,7 @@ public:
      *
      * \return Error code.
      */
-    virtual ErrorCodes_t disconnectDevice() = 0;
+    virtual ErrorCodes_t disconnectDevice();
 
     /*! \brief Enables or disables message types, so that disabled messages are not returned by getNextMessage.
      *  \note Message types are available in e384comllib_global.h.
@@ -234,6 +242,12 @@ public:
      * \return The name as a std::string.
      */
     std::string getDeviceName();
+
+    /*! \brief Get the serial number of the connected device.
+     *
+     * \return The S/N as a std::string.
+     */
+    std::string getDeviceSerial();
 
     /*! \brief Get information about a connected device.
      *
@@ -1540,12 +1554,22 @@ public:
     virtual ErrorCodes_t hasIndependentCCVoltageRanges();
 
     /*! \brief Get the current ranges available in voltage clamp for the device.
+     *  \deprecated
+     *
+     * \param currentRanges [out] Array containing all the available current ranges in voltage clamp.
+     * \param defaultRangeIdx [out] Default index
+     * \note returns the default index only for channel 0 in case the ranges can be set independently
+     * \return Error code.
+     */
+    ErrorCodes_t getVCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, uint16_t &defaultRangeIdx);
+
+    /*! \brief Get the current ranges available in voltage clamp for the device.
      *
      * \param currentRanges [out] Array containing all the available current ranges in voltage clamp.
      * \param defaultRangeIdx [out] Default index
      * \return Error code.
      */
-    ErrorCodes_t getVCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, uint16_t &defaultRangeIdx);
+    ErrorCodes_t getVCCurrentRanges(std::vector <RangedMeasurement_t> &currentRanges, std::vector <uint16_t> &defaultRangeIdxs);
 
     /*! \brief Get the voltage ranges available in voltage clamp for the device.
      *
@@ -2159,11 +2183,10 @@ protected:
     } MsgResume_t;
 
     typedef enum LiquidJunctionProcessing {
+        LiquidJunctionProcessingWaitCommandApplied,
         LiquidJunctionProcessingTransientsStarted,
         LiquidJunctionProcessingWaitTransients,
-        LiquidJunctionProcessingResetRequired,
         LiquidJunctionProcessingCollectData,
-        LiquidJunctionProcessingWaitCommandApplied,
         LiquidJunctionProcessingNum,
     } LiquidJunctionProcessing_t;
 
@@ -2297,7 +2320,7 @@ protected:
     std::vector <uint16_t> selectedVcCurrentRangeIdx;
     std::vector <uint16_t> storedVcCurrentRangeIdx;
     std::vector <RangedMeasurement_t> vcCurrentRangesArray;
-    uint16_t defaultVcCurrentRangeIdx = 0;
+    std::vector <uint16_t> defaultVcCurrentRangeIdxs;
 
     uint32_t vcVoltageRangesNum = 0;
     uint32_t selectedVcVoltageRangeIdx = 0;
@@ -2500,8 +2523,7 @@ protected:
 
     mutable std::mutex ljMutex;
     bool liquidJunctionControlPending = false;
-    LiquidJunctionProcessing_t liquidJunctionProcessing = LiquidJunctionProcessingTransientsStarted;
-    std::chrono::steady_clock::time_point liquidJunctionTransientsStartTime;
+    LiquidJunctionProcessing_t liquidJunctionProcessing = LiquidJunctionProcessingWaitCommandApplied;
 
     std::thread liquidJunctionThread;
 

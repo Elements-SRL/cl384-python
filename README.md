@@ -89,7 +89,7 @@ Currently the Python wrapper of the e384commlib only works on Windows systems.
 #### Windows
 ##### Requirements
 - Python **3.11.7**
-- custom dlls (e384commlib v0.27.1):
+- custom dlls (e384commlib v0.29.0):
     - You can download them from [here](https://elements-ic.com/python_3_11_7_dlls/)
 - EMCR:
     - To correctly use these wrappers it is recommended to install EMCR in order to install the redistributables needed by the code
