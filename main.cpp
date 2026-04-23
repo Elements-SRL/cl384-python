@@ -269,26 +269,26 @@ public:
     ErrorCodes_t setVoltageProtocolStructure(uint16_t protId, uint16_t itemsNum, uint16_t sweepsNum, Measurement_t vRest, bool stopProtocolFlag = true) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolStructure, protId, itemsNum, sweepsNum, vRest, stopProtocolFlag)
     }
-    ErrorCodes_t setVoltageProtocolStep(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t t0, Measurement_t t0Step, bool vHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolStep, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, t0, t0Step, vHalfFlag)
+    ErrorCodes_t setVoltageProtocolStep(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t t0, Measurement_t t0Step, bool vHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolStep, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, t0, t0Step, vHalfFlag, activeDigitalOutputs)
     }
-    ErrorCodes_t setVoltageProtocolRamp(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t vFinal, Measurement_t vFinalStep, Measurement_t t0, Measurement_t t0Step, bool vHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolRamp, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, vFinal, vFinalStep, t0, t0Step, vHalfFlag)
+    ErrorCodes_t setVoltageProtocolRamp(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t vFinal, Measurement_t vFinalStep, Measurement_t t0, Measurement_t t0Step, bool vHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolRamp, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, vFinal, vFinalStep, t0, t0Step, vHalfFlag, activeDigitalOutputs)
     }
-    ErrorCodes_t setVoltageProtocolSin(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t vAmp, Measurement_t vAmpStep, Measurement_t f0, Measurement_t f0Step, bool vHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolSin, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, vAmp, vAmpStep, f0, f0Step, vHalfFlag)
+    ErrorCodes_t setVoltageProtocolSin(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t v0, Measurement_t v0Step, Measurement_t vAmp, Measurement_t vAmpStep, Measurement_t f0, Measurement_t f0Step, bool vHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setVoltageProtocolSin, itemIdx, nextItemIdx, loopReps, applyStepsFlag, v0, v0Step, vAmp, vAmpStep, f0, f0Step, vHalfFlag, activeDigitalOutputs)
     }
     ErrorCodes_t setCurrentProtocolStructure(uint16_t protId, uint16_t itemsNum, uint16_t sweepsNum, Measurement_t iRest, bool stopProtocolFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolStructure, protId, itemsNum, sweepsNum, iRest, stopProtocolFlag)
     }
-    ErrorCodes_t setCurrentProtocolStep(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t t0, Measurement_t t0Step, bool cHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolStep, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, t0, t0Step, cHalfFlag)
+    ErrorCodes_t setCurrentProtocolStep(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t t0, Measurement_t t0Step, bool cHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolStep, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, t0, t0Step, cHalfFlag, activeDigitalOutputs)
     }
-    ErrorCodes_t setCurrentProtocolRamp(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t iFinal, Measurement_t iFinalStep, Measurement_t t0, Measurement_t t0Step, bool cHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolRamp, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, iFinal, iFinalStep, t0, t0Step, cHalfFlag)
+    ErrorCodes_t setCurrentProtocolRamp(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t iFinal, Measurement_t iFinalStep, Measurement_t t0, Measurement_t t0Step, bool cHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolRamp, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, iFinal, iFinalStep, t0, t0Step, cHalfFlag, activeDigitalOutputs)
     }
-    ErrorCodes_t setCurrentProtocolSin(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t iAmp, Measurement_t iAmpStep, Measurement_t f0, Measurement_t f0Step, bool cHalfFlag) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolSin, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, iAmp, iAmpStep, f0, f0Step, cHalfFlag)
+    ErrorCodes_t setCurrentProtocolSin(uint16_t itemIdx, uint16_t nextItemIdx, uint16_t loopReps, bool applyStepsFlag, Measurement_t i0, Measurement_t i0Step, Measurement_t iAmp, Measurement_t iAmpStep, Measurement_t f0, Measurement_t f0Step, bool cHalfFlag, std::vector <uint16_t> activeDigitalOutputs) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCurrentProtocolSin, itemIdx, nextItemIdx, loopReps, applyStepsFlag, i0, i0Step, iAmp, iAmpStep, f0, f0Step, cHalfFlag, activeDigitalOutputs)
     }
     ErrorCodes_t setStateArrayStructure(int numberOfStates, int initialState, Measurement_t reactionTime) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setStateArrayStructure, numberOfStates, initialState, reactionTime)
@@ -672,6 +672,18 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             auto err = self.convertCurrentValues(data.data(), dData.data(), data.size());
             return std::make_tuple(err,  F64Buffer(dData.data(), len));
         })
+        .def("convertTemperatureValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
+            const auto len = data.size();
+            dData.resize(len);
+            auto err = self.convertTemperatureValues(data.data(), dData.data());
+            return std::make_tuple(err,  F64Buffer(dData.data(), len));
+        })
+        .def("convertOnTimeValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
+            const auto len = data.size()/2;
+            dData.resize(len);
+            auto err = self.convertOnTimeValue(data.data(), dData.data());
+            return std::make_tuple(err,  F64Buffer(dData.data(), len));
+        })
         .def("getReadoutOffsetRecalibrationStatuses", [=](MessageDispatcher &self, std::vector<uint16_t> channelIndexes) {
             std::vector<OffsetRecalibStatus> statuses;
             auto err = self.getReadoutOffsetRecalibrationStatuses(channelIndexes, statuses);
@@ -769,6 +781,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             auto err = self.getTemperatureChannelsFeatures(names, ranges);
             return std::make_tuple(err, names, ranges);
         })
+        GET_RANGED_MEASUREMENT(getOnTimeFeatures)
         GET_MEASUREMENT_VEC(getSamplingRatesFeatures)
         GET_MEASUREMENT(getSamplingRate)
         GET_U32(getSamplingRateIdx)
@@ -810,6 +823,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("hasProtocolSinFeature", &MessageDispatcher::hasProtocolSinFeature)
         .def("isStateArrayAvailable", &MessageDispatcher::isStateArrayAvailable)
         .def("getZapFeatures", &MessageDispatcher::getZapFeatures)
+        .def("getCalibrationStatus", &MessageDispatcher::getCalibrationStatus)
         .def("getCalibParams", [=](MessageDispatcher &self) {
             CalibrationParams_t calibParams;
             auto err = self.getCalibParams(calibParams);
