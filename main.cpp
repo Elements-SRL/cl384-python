@@ -427,7 +427,7 @@ public:
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getVoltageHoldTuner, voltages)
     }
     ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion) override {
-        return ErrorCodes_t::ErrorFeatureNotImplemented;
+        return ErrorCodes_t::ErrorFeatureNotImplemented; // this override is needed because the fucntion is virtual. We return an error because the real implementation is defined in the override below
     }
 
 protected:
@@ -516,9 +516,14 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             }
             return std::make_tuple(ret, md);
         }, "Connect to one of the plugged in device")
-        .def("getDeviceInfo", [=](MessageDispatcher &self, std::string deviceId) {
+        .def_static("getDeviceInfo", [=](std::string deviceId) {
             unsigned int deviceVersion, deviceSubVersion, fwVersion;
-            auto err = self.getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwVersion);
+            auto err = MessageDispatcher::getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwVersion);
+            return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);
+        })
+        .def("getDeviceInfo", [=](MessageDispatcher &self) {
+            unsigned int deviceVersion, deviceSubVersion, fwVersion;
+            auto err = self.getDeviceInfo(deviceVersion, deviceSubVersion, fwVersion);
             return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);
         })
         .def("disconnectDevice", [](MessageDispatcher &self) {
