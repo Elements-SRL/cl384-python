@@ -516,7 +516,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             }
             return std::make_tuple(ret, md);
         }, "Connect to one of the plugged in device")
-        .def_static("getDeviceInfo", [=](std::string deviceId) {
+        .def_static("getDeviceInfoStatic", [=](std::string deviceId) {
             unsigned int deviceVersion, deviceSubVersion, fwVersion;
             auto err = MessageDispatcher::getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwVersion);
             return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);

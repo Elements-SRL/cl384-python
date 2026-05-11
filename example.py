@@ -20,7 +20,7 @@ if err != e384.ErrorCodes.Success:
 print(md.getVCVoltageRanges())
 print(md.getVCCurrentRanges())
 md.setSamplingRate(0, True)
-print(md.getDeviceInfo(devices[0]))
+print(md.getDeviceInfo())
 print("getting data from device")
 
 error, sampling_rates = md.getSamplingRatesFeatures()
