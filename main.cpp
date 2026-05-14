@@ -534,7 +534,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("disconnectDevice", [](MessageDispatcher &self, bool overheatFlag) {
             self.deallocateRxDataBuffer(data);
             self.disconnectDevice(overheatFlag);
-        })
+        }, py::arg() = false)
         .def("enableRxMessageType",  &MessageDispatcher::enableRxMessageType)
         .def("getChannelsOnRow",  [=](MessageDispatcher &self, uint16_t rowIdx) {
             std::vector<ChannelModel *> channels;
@@ -614,10 +614,10 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("enableCcStimulus",  &MessageDispatcher::enableCcStimulus)
         .def("setClampingModality", [](MessageDispatcher &self, ClampingModality_t mode, bool applyFlag = true, bool stopProtocolFlag = true) {
             return self.setClampingModality(mode, applyFlag, stopProtocolFlag);
-        })
+        }, py::arg(), py::arg() = true, py::arg() = true)
         .def("setClampingModality", [](MessageDispatcher &self, uint32_t idx, bool applyFlag = true, bool stopProtocolFlag = true) {
             return self.setClampingModality(idx, applyFlag, stopProtocolFlag);
-        })
+        }, py::arg(), py::arg() = true, py::arg() = true)
         .def("setSourceForVoltageChannel",  &MessageDispatcher::setSourceForVoltageChannel)
         .def("setSourceForCurrentChannel",  &MessageDispatcher::setSourceForCurrentChannel)
         .def("readoutOffsetRecalibration",  &MessageDispatcher::readoutOffsetRecalibration)
@@ -635,13 +635,13 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("turnVoltageStimulusOn",  &MessageDispatcher::turnVoltageStimulusOn)
         .def("turnCurrentStimulusOn",  &MessageDispatcher::turnCurrentStimulusOn)
         .def("setVoltageProtocolStructure",  &MessageDispatcher::setVoltageProtocolStructure)
-        .def("setVoltageProtocolStep",  &MessageDispatcher::setVoltageProtocolStep)
-        .def("setVoltageProtocolRamp",  &MessageDispatcher::setVoltageProtocolRamp)
-        .def("setVoltageProtocolSin",  &MessageDispatcher::setVoltageProtocolSin)
+        .def("setVoltageProtocolStep", &MessageDispatcher::setVoltageProtocolStep, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
+        .def("setVoltageProtocolRamp",  &MessageDispatcher::setVoltageProtocolRamp, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
+        .def("setVoltageProtocolSin",  &MessageDispatcher::setVoltageProtocolSin, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
         .def("setCurrentProtocolStructure",  &MessageDispatcher::setCurrentProtocolStructure)
-        .def("setCurrentProtocolStep",  &MessageDispatcher::setCurrentProtocolStep)
-        .def("setCurrentProtocolRamp",  &MessageDispatcher::setCurrentProtocolRamp)
-        .def("setCurrentProtocolSin",  &MessageDispatcher::setCurrentProtocolSin)
+        .def("setCurrentProtocolStep",  &MessageDispatcher::setCurrentProtocolStep, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
+        .def("setCurrentProtocolRamp",  &MessageDispatcher::setCurrentProtocolRamp, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
+        .def("setCurrentProtocolSin",  &MessageDispatcher::setCurrentProtocolSin, py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = std::vector <uint16_t> ())
         .def("setStateArrayStructure",  &MessageDispatcher::setStateArrayStructure)
         .def("setSateArrayState",  &MessageDispatcher::setSateArrayState)
         .def("setStateArrayEnabled",  &MessageDispatcher::setStateArrayEnabled)
