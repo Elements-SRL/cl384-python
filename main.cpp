@@ -74,7 +74,9 @@ public:
         PYBIND11_OVERRIDE_PURE(ErrorCodes_t, MessageDispatcher, initialize, fwPath);
     }
     WRAP_0_ARGS_PURE(void, deinitialize)
-    WRAP_0_ARGS_RET_ERROR_CODES(disconnectDevice)
+    ErrorCodes_t disconnectDevice(bool overheatFlag = false) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(disconnectDevice, overheatFlag)
+    }
     ErrorCodes_t enableRxMessageType(MsgTypeId_t messageType, bool flag) override {
         PYBIND11_OVERRIDE_PURE(ErrorCodes_t, MessageDispatcher, enableRxMessageType, messageType, flag);
     }
@@ -426,8 +428,11 @@ public:
     ErrorCodes_t getVoltageHoldTuner(std::vector <Measurement_t> &voltages) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getVoltageHoldTuner, voltages)
     }
-    ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion) override {
+    ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwMajor, unsigned int &fwMinor, unsigned int &fwPatch) override {
         return ErrorCodes_t::ErrorFeatureNotImplemented; // this override is needed because the fucntion is virtual. We return an error because the real implementation is defined in the override below
+    }
+    ErrorCodes_t sendSpiCommand(uint32_t command, uint32_t dataLoad) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(sendSpiCommand, command, dataLoad)
     }
 
 protected:
@@ -517,18 +522,18 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             return std::make_tuple(ret, md);
         }, "Connect to one of the plugged in device")
         .def_static("getDeviceInfoStatic", [=](std::string deviceId) {
-            unsigned int deviceVersion, deviceSubVersion, fwVersion;
-            auto err = MessageDispatcher::getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwVersion);
-            return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);
+            unsigned int deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch;
+            auto err = MessageDispatcher::getDeviceInfo(deviceId, deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch);
+            return std::make_tuple(err, deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch);
         })
         .def("getDeviceInfo", [=](MessageDispatcher &self) {
-            unsigned int deviceVersion, deviceSubVersion, fwVersion;
-            auto err = self.getDeviceInfo(deviceVersion, deviceSubVersion, fwVersion);
-            return std::make_tuple(err, deviceVersion, deviceSubVersion, fwVersion);
+            unsigned int deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch;
+            auto err = self.getDeviceInfo(deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch);
+            return std::make_tuple(err, deviceVersion, deviceSubVersion, fwMajor, fwMinor, fwPatch);
         })
-        .def("disconnectDevice", [](MessageDispatcher &self) {
+        .def("disconnectDevice", [](MessageDispatcher &self, bool overheatFlag) {
             self.deallocateRxDataBuffer(data);
-            self.disconnectDevice();
+            self.disconnectDevice(overheatFlag);
         })
         .def("enableRxMessageType",  &MessageDispatcher::enableRxMessageType)
         .def("getChannelsOnRow",  [=](MessageDispatcher &self, uint16_t rowIdx) {
@@ -645,6 +650,8 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("enableCcCompensations",  &MessageDispatcher::enableCcCompensations)
         .def("setCompValues",  &MessageDispatcher::setCompValues)
         .def("setCompOptions",  &MessageDispatcher::setCompOptions)
+        .def("setCoolingFansSpeed",  &MessageDispatcher::setCoolingFansSpeed)
+        .def("sendSpiCommand",  &MessageDispatcher::sendSpiCommand)
         .def("setCustomFlag",  &MessageDispatcher::setCustomFlag)
         .def("setCustomOption",  &MessageDispatcher::setCustomOption)
         .def("setCustomDouble",  &MessageDispatcher::setCustomDouble)
@@ -867,6 +874,11 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             auto err = self.getCompensationEnables(channelIndexes, type, onValues);
             return std::make_tuple(err, onValues);
         })
+        .def("getCoolingFansSpeedRange", [=](MessageDispatcher &self) {
+            RangedMeasurement_t range;
+            auto err = self.getCoolingFansSpeedRange(range);
+            return std::make_tuple(err, range);
+        })
         .def("getCustomFlags", [=](MessageDispatcher &self) {
             std::vector <std::string> customFlags;
             std::vector <bool> customFlagsDefault;
@@ -887,6 +899,19 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             auto err = self.getCustomDoubles(customDoubles, customDoublesRanges, customDoublesDefault);
             return std::make_tuple(err, customDoubles, customDoublesRanges, customDoublesDefault);
         });
+
+
+    py::enum_<MsgTypeId_t>(m, "MsgTypeId")
+        .value("MsgTypeIdAcquisitionHeader", MsgTypeIdAcquisitionHeader)
+        .value("MsgTypeIdAcquisitionData", MsgTypeIdAcquisitionData)
+        .value("MsgTypeIdAcquisitionTail", MsgTypeIdAcquisitionTail)
+        .value("MsgTypeIdAcquisitionDataLoss", MsgTypeIdAcquisitionDataLoss)
+        .value("MsgTypeIdAcquisitionDataOverflow", MsgTypeIdAcquisitionDataOverflow)
+        .value("MsgTypeIdAcquisitionSyncStatus", MsgTypeIdAcquisitionSyncStatus)
+        .value("MsgTypeIdTemperature", MsgTypeIdTemperature)
+        .value("MsgTypeIdOnTime", MsgTypeIdOnTime)
+        .value("MsgTypeIdSpiDataLoad", MsgTypeIdSpiDataLoad)
+        .export_values();
 
     py::enum_<ErrorCodes_t>(m, "ErrorCodes")
         .value("Success",                               Success)

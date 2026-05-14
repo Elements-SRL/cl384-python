@@ -101,6 +101,8 @@ public:
         RxMessageStatus,
         RxMessageTemperature,
         RxMessageOnTime,
+        RxMessageSyncStatus,
+        RxMessageSpiDataLoad,
         RxMessageNum
     } RxMessageTypes_t;
 
@@ -157,10 +159,12 @@ public:
      * \param deviceId [in] Serial number of the device.
      * \param deviceVersion [out] Version of the device (device family). -1 if not available.
      * \param deviceSubVersion [out] Subversion of the device (increases with PCB changes). -1 if not available.
-     * \param fwVersion [out] Version of the firmware (increases with device's firmware). -1 if not available.
+     * \param fwMajor [out] Major version of the firmware (increases with device's firmware major releases, i.e. lost retrocompatibility, need of a new SW class). -1 if not available.
+     * \param fwMajor [out] Minor version of the firmware (increases with device's firmware minor releases, i.e. retrocompatibility, new feature which does not require a new SW class). -1 if not available.
+     * \param fwPatch [out] Patch version of the firmware (increases with device's firmware patch releases, i.e. retrocompatibility, bug fix which does not require a new SW class). -1 if not available.
      * \return Error code.
      */
-    static ErrorCodes_t getDeviceInfo(std::string deviceId, unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion);
+    static ErrorCodes_t getDeviceInfo(std::string deviceId, unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwMajor, unsigned int &fwMinor, unsigned int &fwPatch);
 
     /*! \brief Connects to a specific device.
      * Calling this method if a device is already connected will return an error code.
@@ -203,11 +207,12 @@ public:
     virtual void deinitialize() = 0;
 
     /*! \brief Disconnects from connected device.
+     * \param overheatFlag [in] false: standard disconnection; true: enable, (if available) overheating conuntermeasures (e.g. turn off power supplies).
      * Calling this method if no device is connected will return an error code.
      *
      * \return Error code.
      */
-    virtual ErrorCodes_t disconnectDevice();
+    virtual ErrorCodes_t disconnectDevice(bool overheatFlag = false);
 
     /*! \brief Enables or disables message types, so that disabled messages are not returned by getNextMessage.
      *  \note Message types are available in e384comllib_global.h.
@@ -254,10 +259,12 @@ public:
      *
      * \param deviceVersion [out] Version of the device (device family). -1 if not available.
      * \param deviceSubVersion [out] Subversion of the device (increases with PCB changes). -1 if not available.
-     * \param fwVersion [out] Version of the firmware (increases with device's firmware). -1 if not available.
+     * \param fwMajor [out] Major version of the firmware (increases with device's firmware major releases, i.e. lost retrocompatibility, need of a new SW class). -1 if not available.
+     * \param fwMajor [out] Minor version of the firmware (increases with device's firmware minor releases, i.e. retrocompatibility, new feature which does not require a new SW class). -1 if not available.
+     * \param fwPatch [out] Patch version of the firmware (increases with device's firmware patch releases, i.e. retrocompatibility, bug fix which does not require a new SW class). -1 if not available.
      * \return Error code.
      */
-    virtual ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwVersion) = 0;
+    virtual ErrorCodes_t getDeviceInfo(unsigned int &deviceVersion, unsigned int &deviceSubVersion, unsigned int &fwMajor, unsigned int &fwMinor, unsigned int &fwPatch) = 0;
 
     /****************\
      *  Tx methods  *
@@ -1174,10 +1181,19 @@ public:
 
     /*! \brief Set temperature control PID parameters.
      *
-     * \param PidParams_t [in] Struct with PID parameters.
+     * \param params [in] Struct with PID parameters.
      * \return Error code.
      */
     virtual ErrorCodes_t setTemperatureControlPid(PidParams_t params);
+
+    /*! \brief Send an SPI command.
+     *
+     * \param command [in] Command code.
+     * \param dataLoad [in] Data load. If the command is a read command.
+     * \note If command encodes a read command keep dataLoadwill be ignored, and the reply will be returned in the next MsgTypeIdSpiDataLoad message.
+     * \return Error code.
+     */
+    virtual ErrorCodes_t sendSpiCommand(uint32_t command, uint32_t dataLoad);
 
     /*! \brief Set a custom flag.
      *
@@ -2248,6 +2264,7 @@ protected:
     virtual void createCommunicationThreads() = 0;
     virtual ErrorCodes_t initializeHW() = 0;
 
+    virtual void enableOverheatingCounterMeasures();
     virtual ErrorCodes_t stopCommunication() = 0;
     virtual void deinitializeMemory() = 0;
     virtual void deinitializeVariables();
