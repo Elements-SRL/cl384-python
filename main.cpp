@@ -325,8 +325,8 @@ public:
     ErrorCodes_t setCustomDouble(uint16_t idx, double value, bool applyFlag) override {
         PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(setCustomDouble, idx, value, applyFlag)
     }
-    ErrorCodes_t getNextMessage(RxOutput_t &rxOutput, int16_t * data) override {
-        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getNextMessage, rxOutput, data)
+    ErrorCodes_t getNextMessage(RxOutput_t &rxOutput, int16_t * data, MsgTypeId_t type) override {
+        PARTIAL_WRAP_N_ARGS_RET_ERROR_CODES(getNextMessage, rxOutput, data, type)
     }
     WRAP_0_ARGS_RET_ERROR_CODES(purgeData)
     ErrorCodes_t getVoltageHoldTunerFeatures(std::vector <RangedMeasurement_t> &voltageHoldTuner) override {
@@ -667,10 +667,10 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             return std::make_tuple(err, channels);
         })
         GET_U32(getRxDataBufferSize)
-        .def("getNextMessage", [=](MessageDispatcher &self) {
-            auto err = self.getNextMessage(rxOutput, data);
+        .def("getNextMessage", [=](MessageDispatcher &self, MsgTypeId_t type) {
+            auto err = self.getNextMessage(rxOutput, data, type);
             return std::make_tuple(err, rxOutput, I16Buffer(data, rxOutput.dataLen));
-        })
+        }, py::arg() = MsgTypeIdInvalid)
         .def("purgeData", &MessageDispatcher::purgeData)
         .def("convertVoltageValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
             const auto len = data.size();
