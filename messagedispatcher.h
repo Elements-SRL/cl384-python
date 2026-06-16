@@ -1306,9 +1306,10 @@ public:
      *
      * \param rxOutput [out] Struct containing info on the received message.
      * \param data [out] array of output data.
+     * \param type [in] desired data type. Other messages found before the desired type are deleted.
      * \return Error code.
      */
-    virtual ErrorCodes_t getNextMessage(RxOutput_t &rxOutput, int16_t * data);
+    virtual ErrorCodes_t getNextMessage(RxOutput_t &rxOutput, int16_t * data, MsgTypeId type = MsgTypeIdInvalid);
 
     /*! \brief Purge buffered data.
      *  \note Purges the data stored in the library, but not necessarily the data buffered in the device's memory.
@@ -2283,6 +2284,7 @@ protected:
     void deInitializeRawDataFilterVariables();
     void computeRawDataFilterCoefficients();
     double applyRawDataFilter(uint16_t channelIdx, double x, double * iirNum, double * iirDen);
+    virtual void computeDataReadPolicy();
 
     uint32_t getSamplingRateModesNum();
     virtual std::vector <double> user2AsicDomainTransform(int chIdx, std::vector <double> userDomainParams);
@@ -2501,7 +2503,7 @@ protected:
     std::vector <BoardModel *> boardModels;
     std::vector <ChannelModel *> channelModels;
 
-    uint16_t selectedSamplingRateIdx = 0;
+    uint16_t selectedSamplingRateIdx = -1;
 
     std::vector <double> currentResolutions;
     std::vector <double> voltageResolutions;
