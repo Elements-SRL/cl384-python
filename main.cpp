@@ -670,7 +670,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("getNextMessage", [=](MessageDispatcher &self, MsgTypeId_t type) {
             auto err = self.getNextMessage(rxOutput, data, type);
             return std::make_tuple(err, rxOutput, I16Buffer(data, rxOutput.dataLen));
-        }, py::arg() = MsgTypeIdInvalid)
+        }, py::arg() = 0x1BFF)
         .def("purgeData", &MessageDispatcher::purgeData)
         .def("convertVoltageValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
             const auto len = data.size();
