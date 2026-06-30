@@ -501,6 +501,23 @@ private:
 
 
 PYBIND11_MODULE(cl384_python_wrapper, m) {
+
+    // Needs to stay here because it is referenced in getNextMessage (MsgTypeIdInvalid as default)
+    // and the declaration must be before the method definition
+    py::enum_<MsgTypeId_t>(m, "MsgTypeId")
+    .value("MsgTypeIdAcquisitionHeader", MsgTypeIdAcquisitionHeader)
+        .value("MsgTypeIdAcquisitionData", MsgTypeIdAcquisitionData)
+        .value("MsgTypeIdAcquisitionTail", MsgTypeIdAcquisitionTail)
+        .value("MsgTypeIdAcquisitionDataLoss", MsgTypeIdAcquisitionDataLoss)
+        .value("MsgTypeIdAcquisitionDataOverflow", MsgTypeIdAcquisitionDataOverflow)
+        .value("MsgTypeIdAcquisitionSyncStatus", MsgTypeIdAcquisitionSyncStatus)
+        .value("MsgTypeIdTemperature", MsgTypeIdTemperature)
+        .value("MsgTypeIdOnTime", MsgTypeIdOnTime)
+        .value("MsgTypeIdSpiDataLoad", MsgTypeIdSpiDataLoad)
+        .value("MsgTypeIdInvalid", MsgTypeIdInvalid)
+        .export_values();
+
+
     py::class_<MessageDispatcher, PyMessageDispatcher>(m, "MessageDispatcher", py::buffer_protocol(), py::module_local())
     .def(py::init<std::string>())  // Constructor
         .def_static("detectDevices", []() {
@@ -670,7 +687,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .def("getNextMessage", [=](MessageDispatcher &self, MsgTypeId_t type) {
             auto err = self.getNextMessage(rxOutput, data, type);
             return std::make_tuple(err, rxOutput, I16Buffer(data, rxOutput.dataLen));
-        }, py::arg() = 0x1BFF)
+        }, py::arg("type") = MsgTypeIdInvalid)
         .def("purgeData", &MessageDispatcher::purgeData)
         .def("convertVoltageValues", [=](MessageDispatcher &self, std::vector<int16_t> &data) {
             const auto len = data.size();
@@ -899,20 +916,6 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
             auto err = self.getCustomDoubles(customDoubles, customDoublesRanges, customDoublesDefault);
             return std::make_tuple(err, customDoubles, customDoublesRanges, customDoublesDefault);
         });
-
-
-    py::enum_<MsgTypeId_t>(m, "MsgTypeId")
-        .value("MsgTypeIdAcquisitionHeader", MsgTypeIdAcquisitionHeader)
-        .value("MsgTypeIdAcquisitionData", MsgTypeIdAcquisitionData)
-        .value("MsgTypeIdAcquisitionTail", MsgTypeIdAcquisitionTail)
-        .value("MsgTypeIdAcquisitionDataLoss", MsgTypeIdAcquisitionDataLoss)
-        .value("MsgTypeIdAcquisitionDataOverflow", MsgTypeIdAcquisitionDataOverflow)
-        .value("MsgTypeIdAcquisitionSyncStatus", MsgTypeIdAcquisitionSyncStatus)
-        .value("MsgTypeIdTemperature", MsgTypeIdTemperature)
-        .value("MsgTypeIdOnTime", MsgTypeIdOnTime)
-        .value("MsgTypeIdSpiDataLoad", MsgTypeIdSpiDataLoad)
-        .value("MsgTypeIdInvalid", MsgTypeIdInvalid)
-        .export_values();
 
     py::enum_<ErrorCodes_t>(m, "ErrorCodes")
         .value("Success",                               Success)
