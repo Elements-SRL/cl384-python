@@ -911,6 +911,7 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .value("MsgTypeIdTemperature", MsgTypeIdTemperature)
         .value("MsgTypeIdOnTime", MsgTypeIdOnTime)
         .value("MsgTypeIdSpiDataLoad", MsgTypeIdSpiDataLoad)
+        .value("MsgTypeIdInvalid", MsgTypeIdInvalid)
         .export_values();
 
     py::enum_<ErrorCodes_t>(m, "ErrorCodes")
