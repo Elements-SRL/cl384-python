@@ -78,7 +78,7 @@ jobs:
           repository: ${{ env.COMMLIB_REPO }}
           ref: ${{ steps.ref.outputs.commlib_ref }}
           path: commlib
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COMMLIB_PAT }}
 
       # ----- Build + install commlib from source --------------------------
       # commlib is a STATIC lib; the wrapper links it, so it must be installed
