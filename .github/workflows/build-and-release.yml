@@ -92,11 +92,59 @@ jobs:
         shell: powershell
         working-directory: commlib
         run: |
+          # Wipe stale cache: the workspace persists between runs on a self-hosted
+          # runner, and an old CMakeCache.txt pins previous CMAKE_PREFIX_PATH values.
+          if (Test-Path build) {
+            Write-Host "Removing stale build directory..."
+            Remove-Item -Recurse -Force build
+          }
+
+          # Report what the runner PROCESS sees (may differ from Machine scope
+          # if the runner service was not restarted after setting the vars).
+          Write-Host "=== dependency prefixes ==="
+          foreach ($v in 'FRONT_PANEL_PATH','CY_API_PATH','TOML_PP_PATH',
+                         'FTDI_UTILS_PATH','LIBMPSSE_PATH','FTD2XX_PATH') {
+            $proc = [Environment]::GetEnvironmentVariable($v,'Process')
+            $mach = [Environment]::GetEnvironmentVariable($v,'Machine')
+            $flag = if ([string]::IsNullOrWhiteSpace($proc)) { 'MISSING-IN-PROCESS' } else { 'ok' }
+            Write-Host ("{0,-18} {1}" -f $v, $flag)
+            Write-Host ("    process: '{0}'" -f $proc)
+            Write-Host ("    machine: '{0}'" -f $mach)
+          }
+
+          # Build the prefix list from non-empty values only, so we never emit
+          # something like ";;" which breaks find_package resolution.
+          $prefixes = @($env:FTDI_UTILS_PATH, $env:LIBMPSSE_PATH, $env:FTD2XX_PATH) |
+                      Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          if ($prefixes.Count -eq 0) {
+            throw "No dependency prefixes visible to the runner process. Restart the runner service after setting Machine-scope vars."
+          }
+          $prefixPath = ($prefixes -join ';')
+
+          Write-Host ""
+          Write-Host "=== package configs found under those prefixes ==="
+          foreach ($p in $prefixes) {
+            Write-Host ("  {0}  exists={1}" -f $p, (Test-Path $p))
+            Get-ChildItem -Path $p -Recurse -Filter *Config.cmake -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "      $($_.FullName)" }
+          }
+
+          Write-Host ""
+          Write-Host "CMAKE_PREFIX_PATH = $prefixPath"
+          Write-Host ""
+
           cmake -B build -G "Visual Studio 17 2022" -A x64 `
+            --log-level=DEBUG `
             -DCMAKE_CONFIGURATION_TYPES="Release" `
-            -DCMAKE_PREFIX_PATH="$env:LIBMPSSE_PATH;$env:FTD2XX_PATH" `
+            -DCMAKE_PREFIX_PATH="$prefixPath" `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/commlib-install"
 
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "=== CMakeCache CMAKE_PREFIX_PATH after failure ==="
+            Select-String -Path build/CMakeCache.txt -Pattern 'CMAKE_PREFIX_PATH' -ErrorAction SilentlyContinue
+            throw "cmake configure failed with exit code $LASTEXITCODE"
+          }
       - name: Build + install commlib
         shell: powershell
         working-directory: commlib
