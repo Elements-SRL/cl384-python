@@ -26,7 +26,7 @@ on:
       commlib_ref:
         description: 'e384commlib git ref (tag/branch) to build from'
         required: true
-        # NOTE: 'main' has no CMakeLists.txt — the build lives on 'development'.
+        # NOTE: 'main' has no CMakeLists.txt - the build lives on 'development'.
         default: 'development'
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ jobs:
           path: wrapper
 
       # ----- Check out commlib source at the tagged ref -------------------
-      # GITHUB_TOKEN is scoped to THIS repo only — it cannot read e384commlib
+      # GITHUB_TOKEN is scoped to THIS repo only - it cannot read e384commlib
       # even though both live under the same org. COMMLIB_PAT is a fine-grained
       # PAT with Contents:Read on Elements-SRL/e384commlib.
       - name: Checkout e384commlib source
@@ -94,7 +94,7 @@ jobs:
         working-directory: commlib
         run: |
           if (-not (Test-Path CMakeLists.txt)) {
-            throw "commlib/CMakeLists.txt missing — wrong ref? (got '${{ steps.ref.outputs.commlib_ref }}')"
+            throw "commlib/CMakeLists.txt missing - wrong ref? (got '${{ steps.ref.outputs.commlib_ref }}')"
           }
           Write-Host "commlib checked out at ref '${{ steps.ref.outputs.commlib_ref }}'."
 
@@ -197,7 +197,7 @@ jobs:
         working-directory: wrapper
         run: |
           $pyd = Get-ChildItem -Recurse -Filter *.pyd | Select-Object -First 1
-          if (-not $pyd) { throw "No .pyd produced — build failed silently" }
+          if (-not $pyd) { throw "No .pyd produced - build failed silently" }
           echo "pyd_path=$($pyd.FullName)" >> $env:GITHUB_OUTPUT
           echo "Found: $($pyd.FullName)"
 
@@ -282,7 +282,7 @@ jobs:
             **Python target:** CPython 3.11, 64-bit
             **Included:** the `.pyd`, `MPSSE.dll`, `FTD2XX.dll`, a build manifest.
 
-            **Not included:** `okFrontPanel.dll` — required at runtime for Opal
+            **Not included:** `okFrontPanel.dll` - required at runtime for Opal
             Kelly devices but omitted here for licensing reasons. Obtain it from
             the EMCR installer / Opal Kelly FrontPanel and place it beside the
             `.pyd`. See the repo README for details.
