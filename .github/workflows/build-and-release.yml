@@ -145,7 +145,7 @@ jobs:
       - name: Build + install commlib
         working-directory: commlib
         run: |
-          cmake --build build --config Release --target install
+          cmake --build build --config Release --target install --parallel
           if ($LASTEXITCODE -ne 0) { throw "commlib build/install failed: $LASTEXITCODE" }
 
           $cfg = "${{ github.workspace }}\commlib-install\cmake\e384commlibConfig.cmake"
