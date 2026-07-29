@@ -1,0 +1,56 @@
+# SUGGESTED replacement for cl384_python_wrapper/CMakeLists.txt
+#
+# Difference vs the current file: the Python version is no longer hardcoded to
+# 3.11.7. Instead of PYTHON_3_11_7_PATH + python311.lib, it uses a single
+# PYTHON_PATH env var and derives the .lib name, OR (preferred) lets CMake's
+# FindPython locate everything. This makes "add Python 3.12" a config change,
+# not a source edit. Keep your current file until you actually need a second
+# Python version; adopt this when you do. See docs/ADDING_PYTHON_VERSIONS.md.
+
+cmake_minimum_required(VERSION 3.21)
+
+project(cl384_python_wrapper
+    VERSION 0.1.0
+    LANGUAGES CXX
+)
+
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+
+# Library
+add_library(cl384_python_wrapper SHARED
+    main.cpp
+)
+add_library(cl384_python_wrapper::cl384_python_wrapper ALIAS cl384_python_wrapper)
+
+set_target_properties(cl384_python_wrapper PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    SUFFIX ".pyd"
+    PREFIX ""            # so the file is cl384_python_wrapper.pyd, not libcl384...
+)
+
+# --- Python -----------------------------------------------------------------
+# Option A (preferred): let CMake find the interpreter + dev libs. The workflow
+# selects which Python by putting the desired python.exe first on PATH
+# (actions/setup-python does this, or a system install on the runner).
+find_package(Python COMPONENTS Development REQUIRED)
+target_link_libraries(cl384_python_wrapper PUBLIC Python::Python)
+
+# --- pybind11 ---------------------------------------------------------------
+cmake_path(SET PYBIND_11_PATH_CMAKE "$ENV{PYBIND_11_PATH}")
+target_include_directories(cl384_python_wrapper
+    PUBLIC
+    $<BUILD_INTERFACE:${PYBIND_11_PATH_CMAKE}/include>
+)
+
+# --- e384commlib (built from source + installed by the CI job) --------------
+cmake_path(SET E384COMMLIB_PATH_CMAKE "$ENV{E384COMMLIB_PATH}")
+list(APPEND CMAKE_PREFIX_PATH "${E384COMMLIB_PATH_CMAKE}")
+find_package(e384commlib REQUIRED CONFIG)
+
+target_link_libraries(cl384_python_wrapper
+    PUBLIC
+    e384commlib::e384commlib
+)

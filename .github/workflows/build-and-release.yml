@@ -1,0 +1,294 @@
+# Builds the cl384_python_wrapper .pyd from source and publishes a GitHub Release.
+#
+# Trigger: repository_dispatch (event_type = commlib-tagged) sent by the
+# e384commlib trigger workflow, OR manual workflow_dispatch for testing.
+#
+# Runs on a SELF-HOSTED Windows runner because the build needs vendor SDKs
+# (FrontPanel, Cypress FX3) and MSVC 2022 that cannot live on a hosted runner.
+# See docs/RUNNER_SETUP.md.
+#
+# Pipeline:
+#   1. Check out this repo (wrapper: main.cpp + CMakeLists.txt).
+#   2. Check out e384commlib at the tagged ref, build it from source, install it.
+#   3. Build the wrapper against the freshly-installed commlib -> produces the .pyd.
+#   4. Assemble the ship bundle (.pyd + runtime DLLs, minus excluded ones).
+#   5. Publish a GitHub Release stamped with both versions.
+
+name: Build and release .pyd
+
+on:
+  # Sent by e384commlib when an authorised user pushes a tag.
+  repository_dispatch:
+    types: [commlib-tagged]
+  # Manual run for testing. Provide the commlib ref yourself.
+  workflow_dispatch:
+    inputs:
+      commlib_ref:
+        description: 'e384commlib git ref (tag/branch) to build from'
+        required: true
+        # NOTE: 'main' has no CMakeLists.txt - the build lives on 'development'.
+        default: 'development'
+
+# ---------------------------------------------------------------------------
+# Configuration knobs. Most live here so the workflow reads cleanly.
+# The *_PATH dependency variables are NOT here: they are system environment
+# variables on the self-hosted runner (see docs/RUNNER_SETUP.md), so the build
+# consumes them exactly as a manual local build does.
+#
+# Known required runner vars: FRONT_PANEL_PATH, CY_API_PATH, TOML_PP_PATH,
+# FTDI_UTILS_PATH, LIBMPSSE_PATH, FTD2XX_PATH, PYTHON_3_11_7_PATH, PYBIND_11_PATH.
+# (LIBMPSSE_PATH and FTD2XX_PATH are transitive deps pulled in via ftdi_utils.)
+# ---------------------------------------------------------------------------
+env:
+  # Which commlib repo to pull source from.
+  COMMLIB_REPO: Elements-SRL/e384commlib
+  # Python version this .pyd targets. Matches PYTHON_3_11_7_PATH on the runner.
+  # When you add versions later, promote this to a matrix (see docs/ADDING_PYTHON_VERSIONS.md).
+  PY_TAG: 'cp311'
+  # DLLs to ship alongside the .pyd. okFrontPanel.dll is intentionally omitted
+  # (licensing) and main.o is intentionally omitted (build artifact, not runtime).
+  # Toggle okFrontPanel back in by adding it here once redistribution is cleared.
+  SHIP_DLLS: 'MPSSE.dll FTD2XX.dll'
+
+jobs:
+  build:
+    runs-on: [self-hosted, windows, e384-build]   # label set defined in RUNNER_SETUP.md
+    defaults:
+      run:
+        # The runner has Windows PowerShell 5.1, not PowerShell 7 (pwsh),
+        # which is what GitHub Actions would otherwise default to.
+        shell: powershell
+    steps:
+      # ----- Resolve which commlib ref we are building --------------------
+      - name: Resolve commlib ref
+        id: ref
+        run: |
+          if ("${{ github.event_name }}" -eq "repository_dispatch") {
+            $r = "${{ github.event.client_payload.commlib_ref }}"
+          } else {
+            $r = "${{ github.event.inputs.commlib_ref }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($r)) { throw "No commlib ref provided" }
+          echo "commlib_ref=$r" >> $env:GITHUB_OUTPUT
+          echo "Building against commlib ref: $r"
+
+      # ----- Check out the wrapper (this repo) ----------------------------
+      - name: Checkout wrapper
+        uses: actions/checkout@v4
+        with:
+          path: wrapper
+
+      # ----- Check out commlib source at the tagged ref -------------------
+      # GITHUB_TOKEN is scoped to THIS repo only - it cannot read e384commlib
+      # even though both live under the same org. COMMLIB_PAT is a fine-grained
+      # PAT with Contents:Read on Elements-SRL/e384commlib.
+      - name: Checkout e384commlib source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMMLIB_REPO }}
+          ref: ${{ steps.ref.outputs.commlib_ref }}
+          path: commlib
+          token: ${{ secrets.COMMLIB_PAT }}
+
+      - name: Verify commlib checkout
+        working-directory: commlib
+        run: |
+          if (-not (Test-Path CMakeLists.txt)) {
+            throw "commlib/CMakeLists.txt missing - wrong ref? (got '${{ steps.ref.outputs.commlib_ref }}')"
+          }
+          Write-Host "commlib checked out at ref '${{ steps.ref.outputs.commlib_ref }}'."
+
+      # ----- Configure commlib --------------------------------------------
+      # Deps (FrontPanel, CyAPI, toml++, ftdi_utils) are resolved by commlib's
+      # own CMakeLists from the runner's system env vars. Do NOT pass
+      # -DCMAKE_PREFIX_PATH here: it overrides the cache entry the CMakeLists
+      # builds up internally and breaks find_package(ftdi_utils).
+      #
+      # E384COMMLIB_PATH must be EMPTY for this step. commlib's CMakeLists
+      # force-sets CMAKE_INSTALL_PREFIX to $ENV{E384COMMLIB_PATH} when it is
+      # set, which would silently redirect the install to the machine-wide
+      # C:\ElemLibraries\e384CommLib\ instead of our per-run prefix.
+      #
+      # CMAKE_CONFIGURATION_TYPES is restricted to Release because the vendor
+      # imported targets (FrontPanel, CyAPI, ftd2xx) define no MinSizeRel or
+      # RelWithDebInfo locations, and the VS generator emits all four by default.
+      - name: Configure commlib
+        working-directory: commlib
+        env:
+          E384COMMLIB_PATH: ''
+        run: |
+          # The workspace persists between runs on a self-hosted runner; a stale
+          # CMakeCache.txt pins old values and causes confusing failures.
+          if (Test-Path build) {
+            Write-Host "Removing stale build directory..."
+            Remove-Item -Recurse -Force build
+          }
+
+          Write-Host "=== dependency prefixes seen by runner process ==="
+          foreach ($v in 'FRONT_PANEL_PATH','CY_API_PATH','TOML_PP_PATH',
+                         'FTDI_UTILS_PATH','LIBMPSSE_PATH','FTD2XX_PATH') {
+            $proc = [Environment]::GetEnvironmentVariable($v,'Process')
+            $flag = if ([string]::IsNullOrWhiteSpace($proc)) { 'MISSING' } else { 'ok' }
+            Write-Host ("{0,-18} {1}  '{2}'" -f $v, $flag, $proc)
+          }
+          Write-Host ""
+
+          cmake -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_CONFIGURATION_TYPES="Release" `
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\commlib-install"
+          if ($LASTEXITCODE -ne 0) { throw "commlib configure failed: $LASTEXITCODE" }
+
+      # ----- Build + install commlib --------------------------------------
+      # Verifies the config package actually landed at our prefix, so a
+      # misdirected install fails here with a clear message instead of
+      # surfacing later as a confusing find_package error in the wrapper.
+      - name: Build + install commlib
+        working-directory: commlib
+        run: |
+          cmake --build build --config Release --target install --parallel
+          if ($LASTEXITCODE -ne 0) { throw "commlib build/install failed: $LASTEXITCODE" }
+
+          $cfg = "${{ github.workspace }}\commlib-install\cmake\e384commlibConfig.cmake"
+          Write-Host "config at expected prefix: $(Test-Path $cfg)"
+          if (-not (Test-Path $cfg)) {
+            Write-Host "Install went elsewhere. Searching workspace..."
+            Get-ChildItem "${{ github.workspace }}" -Recurse -Filter e384commlibConfig.cmake -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "  $($_.FullName)" }
+            throw "e384commlibConfig.cmake not at $cfg"
+          }
+
+      # ----- Build the wrapper -> .pyd ------------------------------------
+      # PYTHON_3_11_7_PATH and PYBIND_11_PATH come from the runner's system env.
+      # We override E384COMMLIB_PATH to point at what we just installed, so the
+      # wrapper links the freshly-built-from-source commlib, not a stale copy.
+      - name: Configure wrapper
+        working-directory: wrapper
+        env:
+          E384COMMLIB_PATH: ${{ github.workspace }}\commlib-install
+        run: |
+          if (Test-Path build) {
+            Write-Host "Removing stale build directory..."
+            Remove-Item -Recurse -Force build
+          }
+
+          Write-Host "=== wrapper env ==="
+          foreach ($v in 'E384COMMLIB_PATH','PYTHON_3_11_7_PATH','PYBIND_11_PATH') {
+            $proc = [Environment]::GetEnvironmentVariable($v,'Process')
+            $flag = if ([string]::IsNullOrWhiteSpace($proc)) { 'MISSING' } else { 'ok' }
+            Write-Host ("{0,-20} {1}  '{2}'" -f $v, $flag, $proc)
+          }
+          Write-Host ""
+
+          cmake -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_CONFIGURATION_TYPES="Release"
+          if ($LASTEXITCODE -ne 0) { throw "wrapper configure failed: $LASTEXITCODE" }
+
+      - name: Build wrapper
+        working-directory: wrapper
+        env:
+          E384COMMLIB_PATH: ${{ github.workspace }}\commlib-install
+        run: |
+          cmake --build build --config Release
+          if ($LASTEXITCODE -ne 0) { throw "wrapper build failed: $LASTEXITCODE" }
+
+      # ----- Locate the produced .pyd -------------------------------------
+      - name: Find .pyd
+        id: pyd
+        working-directory: wrapper
+        run: |
+          $pyd = Get-ChildItem -Recurse -Filter *.pyd | Select-Object -First 1
+          if (-not $pyd) { throw "No .pyd produced - build failed silently" }
+          echo "pyd_path=$($pyd.FullName)" >> $env:GITHUB_OUTPUT
+          echo "Found: $($pyd.FullName)"
+
+      # ----- Read the commlib version we built against --------------------
+      # commlib's CMakeLists declares project(... VERSION x.y.z). We read it
+      # straight from the source so the release notes state the true origin.
+      - name: Extract commlib version
+        id: commlibver
+        working-directory: commlib
+        run: |
+          $line = Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)' | Select-Object -First 1
+          if (-not $line) { throw "Could not read VERSION from commlib/CMakeLists.txt" }
+          $ver = $line.Matches[0].Groups[1].Value
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+          echo "commlib version: $ver"
+
+      # ----- Assemble the ship bundle -------------------------------------
+      # Bundle = the .pyd + the runtime DLLs listed in SHIP_DLLS.
+      # The DLLs are pulled from their known locations on the runner. Adjust the
+      # source paths in DLL_SEARCH to match where they live on your build machine.
+      - name: Assemble bundle
+        id: bundle
+        run: |
+          $stage = "${{ github.workspace }}/stage"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          # The .pyd
+          Copy-Item "${{ steps.pyd.outputs.pyd_path }}" $stage
+
+          # Runtime DLLs. These folders are where the DLLs sit on the runner;
+          # they typically live beside the vendor SDKs pointed to by the env vars.
+          $DLL_SEARCH = @(
+            "$env:FTDI_UTILS_PATH",
+            "$env:LIBMPSSE_PATH",
+            "$env:FTD2XX_PATH",
+            "$env:FRONT_PANEL_PATH",
+            "${{ github.workspace }}/commlib-install/bin"
+          )
+
+          foreach ($dll in "${{ env.SHIP_DLLS }}".Split(" ")) {
+            $found = $null
+            foreach ($dir in $DLL_SEARCH) {
+              if ([string]::IsNullOrWhiteSpace($dir)) { continue }
+              $hit = Get-ChildItem -Path $dir -Recurse -Filter $dll -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($hit) { $found = $hit.FullName; break }
+            }
+            if (-not $found) { throw "Required DLL not found on runner: $dll" }
+            Copy-Item $found $stage
+            echo "Bundled: $dll  (from $found)"
+          }
+
+          # A manifest so the release is self-documenting.
+          $commlibVer = "${{ steps.commlibver.outputs.version }}"
+          @"
+          cl384_python_wrapper build manifest
+          -----------------------------------
+          Built from e384commlib version : $commlibVer
+          commlib ref                    : ${{ steps.ref.outputs.commlib_ref }}
+          Python target                  : ${{ env.PY_TAG }} (CPython 3.11, x64)
+          Bundled DLLs                   : ${{ env.SHIP_DLLS }}
+          NOT included                   : okFrontPanel.dll (see release notes)
+          "@ | Out-File -Encoding utf8 "$stage/BUILD_MANIFEST.txt"
+
+          $zip = "${{ github.workspace }}/cl384_python-commlib-$commlibVer-${{ env.PY_TAG }}.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
+          echo "zip_path=$zip" >> $env:GITHUB_OUTPUT
+          echo "release_tag=commlib-$commlibVer" >> $env:GITHUB_OUTPUT
+
+      # ----- Publish the GitHub Release -----------------------------------
+      # Release action needs contents:write (granted below). The release is
+      # tagged and named to make the originating commlib version obvious.
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bundle.outputs.release_tag }}
+          name: cl384_python (commlib ${{ steps.commlibver.outputs.version }})
+          body: |
+            Automated build of the Python wrapper `.pyd`.
+
+            **Originating C++ library:** e384commlib ${{ steps.commlibver.outputs.version }}
+            (ref `${{ steps.ref.outputs.commlib_ref }}`)
+            **Python target:** CPython 3.11, 64-bit
+            **Included:** the `.pyd`, `MPSSE.dll`, `FTD2XX.dll`, a build manifest.
+
+            **Not included:** `okFrontPanel.dll` - required at runtime for Opal
+            Kelly devices but omitted here for licensing reasons. Obtain it from
+            the EMCR installer / Opal Kelly FrontPanel and place it beside the
+            `.pyd`. See the repo README for details.
+          files: ${{ steps.bundle.outputs.zip_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    permissions:
+      contents: write   # required for creating the release
