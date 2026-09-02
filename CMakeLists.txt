@@ -49,3 +49,6 @@ target_link_libraries(cl384_python_wrapper
 )
 
 target_link_libraries(cl384_python_wrapper PUBLIC "${PYTHON_3_11_7_PATH_CMAKE}/libs/python311.lib")
+if(MSVC)
+    target_compile_options(cl384_python_wrapper PRIVATE /bigobj)
+endif()
