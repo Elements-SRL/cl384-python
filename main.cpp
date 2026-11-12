@@ -930,6 +930,9 @@ PYBIND11_MODULE(cl384_python_wrapper, m) {
         .value("ErrorListDeviceFailed",                 ErrorListDeviceFailed)
 
         .value("ErrorDeviceNotFound",                   ErrorDeviceNotFound)
+        .value("ErrorFtdiDriverNotFound",               ErrorFtdiDriverNotFound)
+        .value("ErrorCyUsbDriverNotFound",              ErrorCyUsbDriverNotFound)
+        .value("ErrorOkDriverNotFound",                 ErrorOkDriverNotFound)
 
         .value("ErrorEepromAlreadyConnected",           ErrorEepromAlreadyConnected)
         .value("ErrorEepromConnectionFailed",           ErrorEepromConnectionFailed)
